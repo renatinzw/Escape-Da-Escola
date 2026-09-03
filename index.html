@@ -108,6 +108,10 @@ HTML
           💡 DICA <span id="hintCount">3</span>
         </button>
 
+        <button id="soundBtn" class="hud-btn" aria-pressed="true">
+          🔊 SOM
+        </button>
+
         <button id="restartBtn" class="hud-btn">
           ↻ REINICIAR
         </button>
@@ -1310,6 +1314,89 @@ button {
 }
 
 
+/* =========================================================
+   ESCAPE SCHOOL — EXPLORAÇÃO 2D DE SALAS
+   Esta camada mantém o escape room original e troca apenas
+   a representação da sala por um cenário visto de cima.
+========================================================= */
+
+.room-wrap { padding: 22px 28px 0; }
+.room { padding: 0; overflow: hidden; background: #080e19; }
+.topdown-wrap { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.topdown-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 20px; border: 1px solid #2a3852; border-radius: 16px; background: linear-gradient(135deg, rgba(124,92,255,.14), rgba(32,215,165,.06)), #111827; }
+.topdown-header h2 { margin: 0 0 5px; font-size: 23px; }
+.topdown-header p { margin: 0; color: #9eacc5; font-size: 13px; line-height: 1.45; }
+.topdown-help { padding: 10px 13px; border: 1px solid #2a3852; border-radius: 10px; color: #aebbd2; background: rgba(0,0,0,.18); font-size: 11px; white-space: nowrap; }
+.topdown-map { position: relative; width: 100%; min-height: 440px; overflow: hidden; border: 9px solid #242d3d; border-radius: 17px; background-color: #151f2b; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 38px 38px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.3), 0 15px 35px rgba(0,0,0,.34); }
+.topdown-map::before { content: ""; position: absolute; inset: 22px; border: 2px solid rgba(255,255,255,.1); border-radius: 12px; pointer-events: none; }
+.topdown-map::after { content: "PLANTA DA ESCOLA"; position: absolute; top: 34px; right: 36px; color: rgba(201,214,242,.32); font-size: 10px; font-weight: 900; letter-spacing: 2px; pointer-events: none; }
+.topdown-floor-lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 54px, rgba(255,255,255,.018) 55px 56px); pointer-events: none; }
+.topdown-wall { position: absolute; z-index: 2; background: linear-gradient(135deg, #34445e, #1e2c42); box-shadow: 0 3px 0 #0b111d, inset 0 1px rgba(255,255,255,.12); }
+.wall-top { top: 0; right: 0; left: 0; height: 19px; }
+.wall-bottom { right: 0; bottom: 0; left: 0; height: 19px; }
+.wall-left { top: 0; bottom: 0; left: 0; width: 19px; }
+.wall-right { top: 0; right: 0; bottom: 0; width: 19px; }
+.room-prop { position: absolute; z-index: 1; border: 1px solid rgba(138,165,222,.18); border-radius: 7px; background: rgba(41,59,86,.46); box-shadow: inset 0 0 15px rgba(0,0,0,.2); pointer-events: none; }
+.room-prop.window { top: 8%; width: 15%; height: 4%; border-color: rgba(41,215,220,.4); background: repeating-linear-gradient(90deg, rgba(41,215,220,.3) 0 12px, transparent 12px 18px); }
+.room-prop.window.left { left: 11%; }
+.room-prop.window.right { right: 11%; }
+.room-prop.rug { top: 44%; left: 35%; width: 30%; height: 22%; border: 2px solid rgba(124,92,255,.26); background: rgba(124,92,255,.08); transform: rotate(-2deg); }
+.room-prop.lab-table { top: 43%; left: 18%; width: 64%; height: 13%; border-radius: 3px; background: linear-gradient(#754f38, #3f2b25); }
+.room-prop.shelves { top: 15%; left: 5%; width: 9%; height: 63%; background: repeating-linear-gradient(0deg, #463b5f 0 18px, #23263e 19px 23px); }
+.room-prop.shelves.right { right: 5%; left: auto; }
+.room-prop.board { top: 9%; left: 30%; width: 37%; height: 13%; border-color: #4a6b64; background: #183733; }
+.room-prop.locker-row { top: 23%; left: 6%; width: 88%; height: 12%; border-radius: 5px; background: repeating-linear-gradient(90deg, #344b67 0 9%, #1f2c43 9.5% 10.5%); }
+.topdown-object { position: absolute; z-index: 6; display: flex; min-width: 76px; flex-direction: column; align-items: center; gap: 4px; padding: 8px 9px; transform: translate(-50%, -50%); border: 1px solid rgba(160,185,245,.38); border-radius: 11px; color: #f0f4ff; background: linear-gradient(145deg, rgba(31,47,73,.96), rgba(13,23,40,.96)); box-shadow: 0 7px 14px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.07); transition: transform .18s, border-color .18s, box-shadow .18s; }
+.topdown-object:hover, .topdown-object:focus-visible { z-index: 8; border-color: #a18cff; box-shadow: 0 0 0 3px rgba(124,92,255,.15), 0 10px 20px rgba(0,0,0,.4); transform: translate(-50%, -55%) scale(1.05); outline: none; }
+.topdown-object span { font-size: 27px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.topdown-object small { color: #c4cde0; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.topdown-player { position: absolute; z-index: 9; display: grid; place-items: center; width: 58px; height: 70px; transform: translate(-50%, -50%); pointer-events: none; transition: left .08s linear, top .08s linear; filter: drop-shadow(0 7px 5px rgba(0,0,0,.45)); }
+.topdown-player span { display: grid; place-items: center; width: 44px; height: 44px; border: 3px solid #20d7a5; border-radius: 50%; background: #182f3e; font-size: 26px; box-shadow: 0 0 18px rgba(32,215,165,.35); animation: studentFloat .75s infinite alternate ease-in-out; }
+.topdown-player small { margin-top: 4px; padding: 2px 5px; border-radius: 4px; color: #08131c; background: #20d7a5; font-size: 8px; font-weight: 900; }
+.topdown-label { position: absolute; z-index: 4; color: rgba(212,224,247,.5); font-size: 10px; font-weight: 900; letter-spacing: 2px; pointer-events: none; }
+.label-start { bottom: 8%; left: 5%; }
+.label-exit { right: 5%; bottom: 8%; color: rgba(32,215,165,.64); }
+.topdown-controls { display: flex; justify-content: center; gap: 5px; }
+.topdown-controls button { width: 42px; height: 34px; border: 1px solid #2a3852; border-radius: 9px; color: #dce6fa; background: #17243a; font-weight: 900; touch-action: none; }
+.topdown-controls button:hover { border-color: #a18cff; background: #252e52; }
+.topdown-status { display: flex; gap: 5px; align-items: center; padding: 10px 12px; border: 1px solid #2a3852; border-radius: 10px; color: #9eacc5; background: #0d1524; font-size: 12px; }
+.topdown-status strong { color: #ffc857; }
+.topdown-object.is-solved { opacity: .48; border-color: #20d7a5; }
+
+@keyframes studentFloat { to { transform: translateY(-3px); } }
+
+@media (min-width: 1100px) {
+  .room-wrap { padding: 28px 42px 0; }
+  .topdown-map { min-height: 500px; }
+}
+@media (max-width: 800px) {
+  .room-wrap { padding: 14px 12px 0; }
+  .topdown-header { align-items: flex-start; flex-direction: column; padding: 13px 14px; }
+  .topdown-help { width: 100%; white-space: normal; }
+  .topdown-map { min-height: 390px; border-width: 6px; background-size: 28px 28px; }
+  .topdown-object { min-width: 60px; padding: 6px; }
+  .topdown-object span { font-size: 22px; }
+  .topdown-object small { font-size: 8px; }
+  .topdown-player { transform: translate(-50%, -50%) scale(.88); }
+  .topdown-status { font-size: 10px; }
+}
+@media (max-width: 520px) {
+  .topbar { height: auto; min-height: 74px; padding: 10px 12px; align-items: flex-start; }
+  .hud { flex-wrap: wrap; justify-content: flex-end; }
+  .hud-btn { font-size: 10px; padding: 0 8px; }
+  .game-layout { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 74px); }
+  .sidebar { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  .map-buttons { display: flex; gap: 7px; overflow-x: auto; }
+  .map-btn { min-width: 130px; }
+  .inventory, .inventory-title, .objective { display: none; }
+  .room { min-height: 0; }
+  .topdown-map { min-height: 340px; }
+  .topdown-object { min-width: 52px; }
+  .topdown-object span { font-size: 19px; }
+  .topdown-object small { max-width: 66px; overflow: hidden; text-overflow: ellipsis; }
+}
+
+
 
 ===== script.js =====
 
@@ -1614,6 +1701,7 @@ function solve(id) {
     state.solved.add(id);
 
     state.score += 100;
+    playEscapeSound("success");
 
     toast(
       "Puzzle resolvido! +100 pontos"
@@ -2390,6 +2478,8 @@ function bindObjects() {
 
 
 function actions(action) {
+
+  playEscapeSound("click");
 
   const actionsMap = {
 
@@ -3337,6 +3427,8 @@ function failPuzzle(message) {
       state.score - 20
     );
 
+  playEscapeSound("error");
+
 }
 
 
@@ -3450,6 +3542,7 @@ function hint() {
 
 function win() {
 
+  playEscapeSound("win");
   clearInterval(state.timer);
 
   state.started = false;
@@ -3590,6 +3683,237 @@ Object.assign(
 
 
 updateTimer();
+
+
+/* =========================
+   EFEITOS SONOROS
+========================= */
+
+let escapeAudio = null;
+let escapeSoundEnabled = true;
+
+function startEscapeAudio() {
+  if (!escapeSoundEnabled) return;
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return;
+  if (!escapeAudio) escapeAudio = new AudioCtor();
+  if (escapeAudio.state === "suspended") escapeAudio.resume();
+  playEscapeSound("start");
+}
+
+function playEscapeSound(type) {
+  if (!escapeSoundEnabled || !escapeAudio) return;
+  const notes = {
+    click: [360],
+    start: [262, 392],
+    success: [523, 659, 784],
+    error: [150, 110],
+    win: [392, 523, 659, 784]
+  }[type] || [300];
+  notes.forEach((frequency, index) => {
+    window.setTimeout(() => {
+      if (!escapeAudio || !escapeSoundEnabled) return;
+      const oscillator = escapeAudio.createOscillator();
+      const gain = escapeAudio.createGain();
+      const now = escapeAudio.currentTime;
+      oscillator.type = type === "error" ? "sawtooth" : "triangle";
+      oscillator.frequency.setValueAtTime(frequency, now);
+      gain.gain.setValueAtTime(type === "click" ? 0.025 : 0.045, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + (type === "click" ? 0.06 : 0.14));
+      oscillator.connect(gain);
+      gain.connect(escapeAudio.destination);
+      oscillator.start(now);
+      oscillator.stop(now + (type === "click" ? 0.06 : 0.14));
+    }, index * 75);
+  });
+}
+
+$("#startBtn").addEventListener("click", startEscapeAudio);
+
+const soundButton = $("#soundBtn");
+if (soundButton) {
+  soundButton.addEventListener("click", () => {
+    escapeSoundEnabled = !escapeSoundEnabled;
+    soundButton.textContent = escapeSoundEnabled ? "🔊 SOM" : "🔇 MUDO";
+    soundButton.setAttribute("aria-pressed", String(escapeSoundEnabled));
+    if (escapeSoundEnabled) startEscapeAudio();
+  });
+}
+
+
+/* =========================================================
+   EXPLORAÇÃO 2D DO ESCAPE ROOM
+   Não é um jogo de Pac-Man: não há pellets, fantasmas ou
+   perseguição. O aluno apenas explora cada sala e investiga
+   os objetos do escape room original.
+========================================================= */
+
+const escape2DObjects = {
+  classroom: [
+    ["blackboard", "🧑‍🏫", "Quadro", 25, 25, "Uma sequência está escrita."],
+    ["clock", "🕐", "Relógio", 76, 23, "Ele parou em um horário estranho."],
+    ["desk", "🪑", "Carteira", 44, 58, "Uma gaveta está fechada."],
+    ["cabinet", "🗄️", "Armário", 76, 64, "Talvez a chave esteja por perto."]
+  ],
+  lab: [
+    ["computer", "💻", "Computador", 68, 30, "Ele pede uma senha de 4 dígitos."],
+    ["keyboard", "⌨️", "Teclado", 67, 57, "Há marcas nas teclas."],
+    ["shelf", "📦", "Prateleira", 20, 65, "Há vários equipamentos."]
+  ],
+  library: [
+    ["books", "📚", "Estantes", 20, 34, "Existem muitos livros."],
+    ["catalog", "🗃️", "Catálogo", 49, 25, "Um catálogo antigo está sobre a mesa."],
+    ["reading", "🔎", "Mesa de leitura", 71, 65, "Talvez alguém tenha deixado uma pista."]
+  ],
+  science: [
+    ["flasks", "🧪", "Frascos", 24, 35, "Há uma sequência de números."],
+    ["board", "🧮", "Quadro", 70, 25, "Fórmulas estão escritas aqui."],
+    ["box", "🧰", "Caixa", 66, 65, "Uma caixa está trancada."]
+  ],
+  corridor: [
+    ["locker", "🗄️", "Armário", 25, 48, "Um cadeado impede a abertura."],
+    ["notice", "📌", "Mural", 51, 25, "Há vários avisos antigos."],
+    ["camera", "📹", "Câmera", 78, 48, "Uma câmera observa o corredor."]
+  ],
+  exit: [
+    ["final", "🔐", "Portão", 51, 43, "O portão exige a senha final."]
+  ]
+};
+
+const escape2DPositions = {
+  classroom: { x: 50, y: 82 },
+  lab: { x: 50, y: 82 },
+  library: { x: 50, y: 82 },
+  science: { x: 50, y: 82 },
+  corridor: { x: 50, y: 82 },
+  exit: { x: 50, y: 78 }
+};
+
+const escape2DKeys = Object.create(null);
+let escape2DLastFrame = 0;
+
+function escape2DPropHTML(id) {
+  const props = {
+    classroom: '<div class="room-prop window left"></div><div class="room-prop window right"></div><div class="room-prop rug"></div>',
+    lab: '<div class="room-prop window left"></div><div class="room-prop lab-table"></div>',
+    library: '<div class="room-prop shelves"></div><div class="room-prop shelves right"></div><div class="room-prop rug"></div>',
+    science: '<div class="room-prop board"></div><div class="room-prop lab-table"></div>',
+    corridor: '<div class="room-prop locker-row"></div>',
+    exit: '<div class="room-prop window left"></div><div class="room-prop window right"></div>'
+  };
+  return props[id] || "";
+}
+
+function escape2DRoomHTML(id) {
+  const roomData = rooms[id];
+  const position = escape2DPositions[id] || { x: 50, y: 80 };
+  const objects = escape2DObjects[id] || [];
+  const solvedActions = new Set([
+    state.solved.has("classroomDoor") ? "blackboard" : "",
+    state.solved.has("labComputer") ? "computer" : "",
+    state.solved.has("libraryBooks") ? "books" : "",
+    state.solved.has("sciencePuzzle") ? "flasks" : "",
+    state.solved.has("corridorDoor") ? "locker" : "",
+    state.solved.has("finalDoor") ? "final" : ""
+  ]);
+
+  return `
+    <div class="topdown-wrap">
+      <div class="topdown-header">
+        <div>
+          <h2>${roomData.icon} ${roomData.name}</h2>
+          <p>${sceneDescription(id)}</p>
+        </div>
+        <div class="topdown-help">Clique nos objetos para investigar  
+WASD / SETAS para caminhar</div>
+      </div>
+      <div class="topdown-map" id="topdownMap">
+        <div class="topdown-wall wall-top"></div>
+        <div class="topdown-wall wall-bottom"></div>
+        <div class="topdown-wall wall-left"></div>
+        <div class="topdown-wall wall-right"></div>
+        <div class="topdown-floor-lines"></div>
+        ${escape2DPropHTML(id)}
+        ${objects.map(([action, icon, name, x, y, description]) => `
+          <button class="topdown-object ${solvedActions.has(action) ? "is-solved" : ""}" data-action="${action}" style="left:${x}%;top:${y}%;" title="${description}">
+            <span>${icon}</span><small>${name}</small>
+          </button>
+        `).join("")}
+        <div id="topdownPlayer" class="topdown-player" style="left:${position.x}%;top:${position.y}%;">
+          <span>🧑‍🎓</span><small>VOCÊ</small>
+        </div>
+        <div class="topdown-label label-start">INÍCIO</div>
+        <div class="topdown-label label-exit">SAÍDA</div>
+      </div>
+      <div class="topdown-controls" aria-label="Controles de movimento">
+        <button data-move="up" aria-label="Andar para cima">▲</button>
+        <div><button data-move="left" aria-label="Andar para esquerda">◀</button><button data-move="down" aria-label="Andar para baixo">▼</button><button data-move="right" aria-label="Andar para direita">▶</button></div>
+      </div>
+      <div class="topdown-status"><strong>Objetivo:</strong> explore a sala e clique nos objetos para descobrir as pistas.</div>
+    </div>
+  `;
+}
+
+roomHTML = escape2DRoomHTML;
+
+function bindEscape2DControls() {
+  document.querySelectorAll("[data-move]").forEach((button) => {
+    const direction = button.dataset.move;
+    const key = direction === "up" ? "up" : direction === "down" ? "down" : direction === "left" ? "left" : "right";
+    const start = (event) => { event.preventDefault(); escape2DKeys[key] = true; };
+    const stop = (event) => { event.preventDefault(); escape2DKeys[key] = false; };
+    button.addEventListener("pointerdown", start);
+    button.addEventListener("pointerup", stop);
+    button.addEventListener("pointercancel", stop);
+    button.addEventListener("pointerleave", stop);
+  });
+}
+
+const escape2DOriginalBindObjects = bindObjects;
+bindObjects = function() {
+  escape2DOriginalBindObjects();
+  bindEscape2DControls();
+};
+
+document.addEventListener("keydown", (event) => {
+  const key = event.key.toLowerCase();
+  const movement = { arrowup: "up", w: "up", arrowdown: "down", s: "down", arrowleft: "left", a: "left", arrowright: "right", d: "right" }[key];
+  if (movement) {
+    event.preventDefault();
+    escape2DKeys[movement] = true;
+  }
+});
+
+document.addEventListener("keyup", (event) => {
+  const key = event.key.toLowerCase();
+  const movement = { arrowup: "up", w: "up", arrowdown: "down", s: "down", arrowleft: "left", a: "left", arrowright: "right", d: "right" }[key];
+  if (movement) escape2DKeys[movement] = false;
+});
+
+function updateEscape2DPlayer(timestamp) {
+  const player = escape2DPositions[state.room];
+  const element = $("#topdownPlayer");
+  if (player && element && state.started) {
+    let dx = 0;
+    let dy = 0;
+    if (escape2DKeys.left) dx -= 1;
+    if (escape2DKeys.right) dx += 1;
+    if (escape2DKeys.up) dy -= 1;
+    if (escape2DKeys.down) dy += 1;
+    if (dx || dy) {
+      const length = Math.hypot(dx, dy) || 1;
+      const speed = 0.055 * Math.min(2, (timestamp - escape2DLastFrame) / 16.67 || 1);
+      player.x = Math.max(8, Math.min(92, player.x + (dx / length) * speed));
+      player.y = Math.max(12, Math.min(88, player.y + (dy / length) * speed));
+      element.style.left = `${player.x}%`;
+      element.style.top = `${player.y}%`;
+    }
+  }
+  escape2DLastFrame = timestamp;
+  window.requestAnimationFrame(updateEscape2DPlayer);
+}
+
+window.requestAnimationFrame(updateEscape2DPlayer);
 
 
 
