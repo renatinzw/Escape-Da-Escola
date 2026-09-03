@@ -1,260 +1,131 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#090d18">
-  <title>ESCAPE SCHOOL - Depois do Sinal!</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#070b16">
+  <meta name="description" content="Escape School — um jogo 2D de labirinto na escola depois do sinal.">
+  <title>ESCAPE SCHOOL — Depois do Sinal</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<div id="toast" class="toast"></div>
-
-<main id="app">
-
-  <!-- TELA INICIAL -->
-  <section id="startScreen" class="screen active">
-    <div class="start-card">
-
-      <div class="eyebrow">
-        FEXTEC • DESENVOLVIMENTO DE SISTEMAS
-      </div>
-
-      <h1>ESCAPE <span>SCHOOL</span></h1>
-
-      <p class="subtitle">Depois do Sinal</p>
-
-      <p class="intro">
-        O último sinal tocou. A escola ficou vazia.
-        Você percebeu tarde demais que os portões estão trancados.
-      </p>
-
-      <button id="startBtn" class="primary-btn">
-        ENTRAR NA ESCOLA
-      </button>
-
-      <button id="howBtn" class="ghost-btn">
-        COMO JOGAR
-      </button>
-
-      <div class="credits">
-        Um escape room digital criado para a FEXTEC
-      </div>
-
-    </div>
-  </section>
-
-
-  <!-- COMO JOGAR -->
-  <section id="howScreen" class="screen">
-
-    <div class="panel narrow">
-
-      <button class="close-btn" data-close="howScreen">
-        ×
-      </button>
-
-      <h2>Como jogar</h2>
-
-      <ul class="rules">
-        <li>Explore as salas clicando nos objetos.</li>
-        <li>Resolva os puzzles para encontrar pistas e itens.</li>
-        <li>Use o inventário quando encontrar algo importante.</li>
-        <li>Você terá <strong>15 minutos</strong> para escapar.</li>
-        <li>O botão <strong>DICA</strong> pode ajudar.</li>
-        <li>A senha final possui <strong>4 dígitos</strong>.</li>
-      </ul>
-
-      <button class="primary-btn" data-close="howScreen">
-        ENTENDI
-      </button>
-
-    </div>
-
-  </section>
-
-
-  <!-- JOGO -->
-  <section id="gameScreen" class="screen">
-
-    <header class="topbar">
-
-      <div>
-        <div class="game-title">
-          ESCAPE SCHOOL
+  <main id="app">
+    <section id="startScreen" class="screen active" aria-labelledby="title">
+      <div class="start-card">
+        <div class="eyebrow">FEXTEC • DESENVOLVIMENTO DE SISTEMAS</div>
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <h1 id="title">ESCAPE <span>SCHOOL</span></h1>
+        <p class="subtitle">Depois do Sinal</p>
+        <p class="intro">O último sinal tocou. A escola ficou vazia. Atravesse o labirinto, colete os itens e escape antes que o inspetor encontre você.</p>
+        <button id="startBtn" class="primary-btn">ENTRAR NA ESCOLA</button>
+        <button id="howBtn" class="ghost-btn">COMO JOGAR</button>
+        <div class="feature-row" aria-label="Recursos do jogo">
+          <span>▦ MAPA 2D</span><span>◉ ANIMAÇÃO</span><span>♫ SONS</span>
         </div>
+        <div class="credits">Um escape room digital criado para a FEXTEC</div>
+      </div>
+    </section>
 
-        <div id="locationName" class="location">
-          Sala de Aula
+    <section id="howScreen" class="screen" aria-labelledby="howTitle">
+      <div class="panel narrow">
+        <button class="close-btn" data-close="howScreen" aria-label="Fechar">×</button>
+        <div class="eyebrow">MANUAL DO ALUNO</div>
+        <h2 id="howTitle">Como jogar</h2>
+        <div class="rule-list">
+          <div class="rule"><b>01</b><p>Use as <strong>setas</strong> ou <strong>WASD</strong> para andar pelo labirinto.</p></div>
+          <div class="rule"><b>02</b><p>Coma os pontos e colete os itens espalhados pela escola.</p></div>
+          <div class="rule"><b>03</b><p>Evite os inspetores. Pegue uma estrela de energia para ficar invencível por alguns segundos.</p></div>
+          <div class="rule"><b>04</b><p>Encontre o <strong>cartão de acesso</strong> e chegue ao portão verde para escapar.</p></div>
+          <div class="rule"><b>05</b><p>O áudio começa ao clicar em “Entrar”. Você pode desligá-lo no botão <strong>SOM</strong>.</p></div>
         </div>
+        <button class="primary-btn" data-close="howScreen">ENTENDI</button>
       </div>
+    </section>
 
-      <div class="hud">
-
-        <div class="hud-box">
-          <span>⏱</span>
-          <b id="timer">15:00</b>
+    <section id="gameScreen" class="screen game-screen" aria-label="Área de jogo">
+      <header class="topbar">
+        <div class="title-block">
+          <div class="game-title"><span class="title-dot"></span> ESCAPE SCHOOL</div>
+          <div id="locationName" class="location">Corredor principal</div>
         </div>
-
-        <button id="hintBtn" class="hud-btn">
-          💡 DICA <span id="hintCount">3</span>
-        </button>
-
-        <button id="restartBtn" class="hud-btn">
-          ↻ REINICIAR
-        </button>
-
-      </div>
-
-    </header>
-
-
-    <div class="game-layout">
-
-      <!-- MENU LATERAL -->
-      <aside class="sidebar">
-
-        <div class="side-title">
-          MAPA
+        <div class="hud" aria-label="Informações da partida">
+          <div class="hud-box"><span class="hud-icon">◷</span><b id="timer">15:00</b></div>
+          <div class="hud-box"><span class="hud-icon">★</span><b id="score">00000</b></div>
+          <div class="hud-box"><span class="hud-icon heart">♥</span><b id="lives">3</b></div>
+          <button id="soundBtn" class="hud-btn" aria-pressed="true">♫ SOM</button>
+          <button id="restartBtn" class="hud-btn">↻ REINICIAR</button>
         </div>
+      </header>
 
-        <div id="mapButtons" class="map-buttons"></div>
+      <div class="game-layout">
+        <aside class="sidebar">
+          <div class="side-title">MISSÃO</div>
+          <div class="mission-card">
+            <div class="mission-icon">⌁</div>
+            <p id="objectiveText">Colete os itens e encontre o cartão de acesso.</p>
+          </div>
 
+          <div class="side-title inventory-title">INVENTÁRIO <span id="itemCount">0/3</span></div>
+          <div id="inventory" class="inventory" aria-label="Inventário"></div>
 
-        <div class="side-title inventory-title">
-          INVENTÁRIO
-        </div>
+          <div class="side-title legend-title">LEGENDA</div>
+          <div class="legend">
+            <span><i class="legend-dot pellet"></i>Ponto</span>
+            <span><i class="legend-dot power"></i>Energia</span>
+            <span><i class="legend-gate"></i>Saída</span>
+          </div>
 
-        <div id="inventory" class="inventory"></div>
+          <div class="score-tip"><strong>DICA</strong><span id="hintText">O cartão de acesso está escondido no corredor.</span></div>
+        </aside>
 
-
-        <div class="objective">
-
-          <small>OBJETIVO</small>
-
-          <p id="objectiveText">
-            Encontre uma forma de abrir a porta da sala.
-          </p>
-
-        </div>
-
-      </aside>
-
-
-      <!-- SALA -->
-      <section class="room-wrap">
-
-        <div id="room" class="room"></div>
-
-        <div class="statusbar">
-
-          <span id="progressText">
-            Progresso: 0%
-          </span>
-
-          <span id="messageText">
-            Explore a sala.
-          </span>
-
-        </div>
-
-      </section>
-
-    </div>
-
-  </section>
-
-
-  <!-- VITÓRIA -->
-  <section id="winScreen" class="screen">
-
-    <div class="result-card">
-
-      <div class="result-icon">
-        🔓
+        <section class="room-wrap">
+          <div class="room-heading">
+            <div><span class="room-kicker">FASE 01</span><h2>Corredor principal</h2></div>
+            <div class="progress-pill"><span id="progressText">0%</span><span>DO MAPA</span></div>
+          </div>
+          <div id="room" class="room" tabindex="0" aria-label="Labirinto do jogo"></div>
+          <div class="statusbar"><span id="messageText">Encontre uma saída antes do próximo sinal.</span><span class="keyboard-hint">SETAS / WASD • ESPAÇO: PAUSAR</span></div>
+          <div class="mobile-controls" aria-label="Controles de toque">
+            <button data-direction="up" aria-label="Cima">▲</button>
+            <div><button data-direction="left" aria-label="Esquerda">◀</button><button data-direction="down" aria-label="Baixo">▼</button><button data-direction="right" aria-label="Direita">▶</button></div>
+          </div>
+        </section>
       </div>
+    </section>
 
-      <div class="eyebrow">
-        PORTÃO DESBLOQUEADO
+    <section id="winScreen" class="screen result-screen" aria-labelledby="winTitle">
+      <div class="result-card">
+        <div class="result-icon win-icon">✓</div>
+        <div class="eyebrow">PORTÃO DESBLOQUEADO</div>
+        <h2 id="winTitle">VOCÊ ESCAPOU!</h2>
+        <p id="winSummary">A escola ficou para trás. Boa corrida.</p>
+        <div class="score-box"><span>PONTUAÇÃO FINAL</span><strong id="finalScore">00000</strong></div>
+        <button id="playAgainBtn" class="primary-btn">JOGAR NOVAMENTE</button>
       </div>
+    </section>
 
-      <h2>
-        VOCÊ ESCAPOU!
-      </h2>
-
-      <p id="winSummary"></p>
-
-      <div class="score-box">
-
-        <span>PONTUAÇÃO</span>
-
-        <strong id="finalScore">
-          0
-        </strong>
-
+    <section id="loseScreen" class="screen result-screen" aria-labelledby="loseTitle">
+      <div class="result-card">
+        <div class="result-icon lose-icon">!</div>
+        <div class="eyebrow">O SINAL TOCOU</div>
+        <h2 id="loseTitle">VOCÊ FOI PEGO</h2>
+        <p id="loseSummary">O corredor ficou silencioso demais. Recomece e tente uma rota diferente.</p>
+        <button id="tryAgainBtn" class="primary-btn">TENTAR NOVAMENTE</button>
       </div>
+    </section>
+  </main>
 
-      <button id="playAgainBtn" class="primary-btn">
-        JOGAR NOVAMENTE
-      </button>
-
-    </div>
-
-  </section>
-
-
-  <!-- DERROTA -->
-  <section id="loseScreen" class="screen">
-
-    <div class="result-card">
-
-      <div class="result-icon">
-        ⏰
-      </div>
-
-      <div class="eyebrow">
-        O TEMPO ACABOU
-      </div>
-
-      <h2>
-        VOCÊ NÃO CONSEGUIU SAIR
-      </h2>
-
-      <p>
-        O relógio chegou a zero.
-        Tente novamente e use as pistas com mais estratégia.
-      </p>
-
-      <button id="tryAgainBtn" class="primary-btn">
-        TENTAR NOVAMENTE
-      </button>
-
-    </div>
-
-  </section>
-
-</main>
-
-
-<!-- JANELA DOS PUZZLES -->
-<div id="modal" class="modal hidden">
-
-  <div class="modal-card">
-
-    <button id="modalClose" class="close-btn">
-      ×
-    </button>
-
-    <div id="modalContent"></div>
-
+  <div id="pauseOverlay" class="pause-overlay hidden" aria-hidden="true">
+    <div class="pause-card"><div class="eyebrow">JOGO PAUSADO</div><h2>Respire.</h2><p>Pressione ESPAÇO para voltar ao labirinto.</p><button id="resumeBtn" class="primary-btn">CONTINUAR</button></div>
   </div>
 
-</div>
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card"><button id="modalClose" class="close-btn" aria-label="Fechar">×</button><div id="modalContent"></div></div>
+  </div>
 
-
-<script src="script.js"></script>
-
+  <script src="script.js"></script>
 </body>
 </html>
