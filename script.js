@@ -1,2031 +1,1602 @@
-const $ = s => document.querySelector(s);
-
-
-/* =========================
-   SALAS
-========================= */
-
-const rooms = {
-
-  classroom: {
-    name: "Sala de Aula",
-    icon: "📚"
-  },
-
-  lab: {
-    name: "Laboratório de Informática",
-    icon: "💻"
-  },
-
-  library: {
-    name: "Biblioteca",
-    icon: "📖"
-  },
-
-  science: {
-    name: "Laboratório de Ciências",
-    icon: "🧪"
-  },
-
-  corridor: {
-    name: "Corredor Principal",
-    icon: "🚪"
-  },
-
-  exit: {
-    name: "Portão Principal",
-    icon: "🔐"
-  }
-
-};
-
-
-/* =========================
-   ITENS
-========================= */
-
-const itemData = {
-
-  key: {
-    icon: "🔑",
-    name: "Chave"
-  },
-
-  card: {
-    icon: "🪪",
-    name: "Cartão"
-  },
-
-  note: {
-    icon: "📝",
-    name: "Bilhete"
-  },
-
-  book: {
-    icon: "📕",
-    name: "Livro"
-  },
-
-  battery: {
-    icon: "🔋",
-    name: "Bateria"
-  },
-
-  lens: {
-    icon: "🔍",
-    name: "Lupa"
-  }
-
-};
-
-
-/* =========================
-   ESTADO DO JOGO
-========================= */
-
-let state = {
-
-  room: "classroom",
-
-  inventory: [],
-
-  solved: new Set(),
-
-  flags: {},
-
-  hints: 3,
-
-  time: 900,
-
-  timer: null,
-
-  score: 1000,
-
-  started: false
-
-};
-
-
-/* =========================
-   RESET
-========================= */
-
-function resetState() {
-
-  state = {
-
-    room: "classroom",
-
-    inventory: [],
-
-    solved: new Set(),
-
-    flags: {},
-
-    hints: 3,
-
-    time: 900,
-
-    timer: null,
-
-    score: 1000,
-
-    started: true
-
-  };
-
-  showScreen("gameScreen");
-
-  render();
-
-  startTimer();
-
-}
-
-
-/* =========================
-   TELAS
-========================= */
-
-function showScreen(id) {
-
-  document
-    .querySelectorAll(".screen")
-    .forEach(x => x.classList.remove("active"));
-
-  $("#" + id).classList.add("active");
-
-}
-
-
-/* =========================
-   CRONÔMETRO
-========================= */
-
-function startTimer() {
-
-  clearInterval(state.timer);
-
-  state.timer = setInterval(() => {
-
-    if (!state.started) return;
-
-    state.time--;
-
-    updateTimer();
-
-    if (state.time <= 0) {
-
-      clearInterval(state.timer);
-
-      state.started = false;
-
-      showScreen("loseScreen");
-
-    }
-
-  }, 1000);
-
-}
-
-
-function updateTimer() {
-
-  const minutes =
-    Math.floor(state.time / 60)
-    .toString()
-    .padStart(2, "0");
-
-  const seconds =
-    (state.time % 60)
-    .toString()
-    .padStart(2, "0");
-
-  $("#timer").textContent =
-    `${minutes}:${seconds}`;
-
-  if (state.time <= 120) {
-
-    $("#timer").style.color =
-      "var(--danger)";
-
-  } else {
-
-    $("#timer").style.color = "";
-
-  }
-
-}
-
-
-/* =========================
-   INVENTÁRIO
-========================= */
-
-function addItem(id) {
-
-  if (!state.inventory.includes(id)) {
-
-    state.inventory.push(id);
-
-    toast(
-      `Item obtido: ${itemData[id].name}`
-    );
-
-    renderInventory();
-
-  }
-
-}
-
-
-function hasItem(id) {
-
-  return state.inventory.includes(id);
-
-}
-
-
-function renderInventory() {
-
-  $("#inventory").innerHTML =
-    Object.keys(itemData).map(id => {
-
-      const has =
-        state.inventory.includes(id);
-
-      return `
-
-        <div
-          class="item"
-          title="${
-            has
-              ? itemData[id].name
-              : "Espaço vazio"
-          }"
-        >
-
-          ${has ? itemData[id].icon : ""}
-
-          ${
-            has
-              ? `<small>
-                   ${itemData[id].name}
-                 </small>`
-              : ""
-          }
-
-        </div>
-
-      `;
-
-    }).join("");
-
-}
-
-
-/* =========================
-   PUZZLES RESOLVIDOS
-========================= */
-
-function solve(id) {
-
-  if (!state.solved.has(id)) {
-
-    state.solved.add(id);
-
-    state.score += 100;
-
-    toast(
-      "Puzzle resolvido! +100 pontos"
-    );
-
-  }
-
-}
-
-
-function progress() {
-
-  const total = 9;
-
-  return Math.min(
-    100,
-    Math.round(
-      state.solved.size / total * 100
-    )
-  );
-
-}
-
-
-/* =========================
-   MAPA
-========================= */
-
-function renderMap() {
-
-  const order = [
-
-    "classroom",
-    "lab",
-    "library",
-    "science",
-    "corridor",
-    "exit"
-
-  ];
-
-
-  $("#mapButtons").innerHTML =
-    order.map(id => {
-
-      const locked =
-
-        (id === "lab" &&
-         !state.solved.has("classroomDoor"))
-
-        ||
-
-        (id === "library" &&
-         !state.solved.has("labComputer"))
-
-        ||
-
-        (id === "science" &&
-         !state.solved.has("libraryBooks"))
-
-        ||
-
-        (id === "corridor" &&
-         !state.solved.has("sciencePuzzle"))
-
-        ||
-
-        (id === "exit" &&
-         !state.solved.has("corridorDoor"));
-
-
-      return `
-
-        <button
-
-          class="
-            map-btn
-            ${state.room === id ? "active" : ""}
-            ${locked ? "locked" : ""}
-          "
-
-          data-room="${id}"
-
-          ${locked ? "disabled" : ""}
-
-        >
-
-          ${rooms[id].icon}
-
-          ${rooms[id].name}
-
-        </button>
-
-      `;
-
-    }).join("");
-
-
-  document
-    .querySelectorAll("[data-room]")
-    .forEach(button => {
-
-      button.onclick = () => {
-
-        goRoom(button.dataset.room);
-
-      };
-
-    });
-
-}
-
-
-/* =========================
-   MUDAR DE SALA
-========================= */
-
-function goRoom(id) {
-
-  if (
-    id === "lab" &&
-    !state.solved.has("classroomDoor")
-  ) {
-
-    return toast(
-      "A porta do laboratório ainda está trancada."
-    );
-
-  }
-
-
-  if (
-    id === "library" &&
-    !state.solved.has("labComputer")
-  ) {
-
-    return toast(
-      "Você ainda precisa descobrir a senha do computador."
-    );
-
-  }
-
-
-  if (
-    id === "science" &&
-    !state.solved.has("libraryBooks")
-  ) {
-
-    return toast(
-      "A biblioteca ainda esconde uma pista."
-    );
-
-  }
-
-
-  if (
-    id === "corridor" &&
-    !state.solved.has("sciencePuzzle")
-  ) {
-
-    return toast(
-      "Você ainda não resolveu o desafio do laboratório."
-    );
-
-  }
-
-
-  if (
-    id === "exit" &&
-    !state.solved.has("corridorDoor")
-  ) {
-
-    return toast(
-      "O portão ainda não pode ser acessado."
-    );
-
-  }
-
-
-  state.room = id;
-
-  render();
-
-}
-
-
-/* =========================
-   RENDER
-========================= */
-
-function render() {
-
-  $("#locationName").textContent =
-    rooms[state.room].name;
-
-  renderMap();
-
-  renderInventory();
-
-  updateTimer();
-
-  $("#progressText").textContent =
-    `Progresso: ${progress()}%`;
-
-
-  const objectives = {
-
-    classroom:
-      "Encontre uma forma de abrir a porta da sala.",
-
-    lab:
-      "Descubra a senha do computador.",
-
-    library:
-      "Encontre o livro certo e descubra a pista.",
-
-    science:
-      "Resolva o enigma dos frascos.",
-
-    corridor:
-      "Abra o armário de manutenção.",
-
-    exit:
-      "Digite a senha final no portão."
-
-  };
-
-
-  $("#objectiveText").textContent =
-    objectives[state.room];
-
-
-  $("#room").innerHTML =
-    roomHTML(state.room);
-
-
-  bindObjects();
-
-}
-
-
-/* =========================
-   DESCRIÇÕES
-========================= */
-
-function sceneDescription(id) {
-
-  return {
-
-    classroom:
-      "As carteiras estão vazias. O relógio parou. Há algo escrito no quadro.",
-
-    lab:
-      "Monitores desligados, cabos espalhados e um computador que ainda funciona.",
-
-    library:
-      "Silêncio absoluto. Estantes enormes escondem dezenas de pistas.",
-
-    science:
-      "Há frascos coloridos, um quadro de fórmulas e uma caixa trancada.",
-
-    corridor:
-      "As luzes piscam. Um armário metálico está preso por um cadeado.",
-
-    exit:
-      "O portão eletrônico exige uma senha de quatro dígitos."
-
-  }[id];
-
-}
-
-
-/* =========================
-   HTML DAS SALAS
-========================= */
-
-function roomHTML(id) {
-
-  const header = `
-
-    <div class="scene-header">
-
-      <h2>
-        ${rooms[id].icon}
-        ${rooms[id].name}
-      </h2>
-
-      <p>
-        ${sceneDescription(id)}
-      </p>
-
-    </div>
-
-  `;
-
-
-  let body = "";
-
-
-  if (id === "classroom")
-    body = classroomHTML();
-
-
-  if (id === "lab")
-    body = labHTML();
-
-
-  if (id === "library")
-    body = libraryHTML();
-
-
-  if (id === "science")
-    body = scienceHTML();
-
-
-  if (id === "corridor")
-    body = corridorHTML();
-
-
-  if (id === "exit")
-    body = exitHTML();
-
-
-  return `
-
-    <div class="scene">
-
-      ${header}
-
-      <div class="scene-body">
-
-        ${body}
-
-      </div>
-
-    </div>
-
-  `;
-
-}
-
-
-/* =========================
-   SALA DE AULA
-========================= */
-
-function classroomHTML() {
-
-  return `
-
-    <button class="object-btn"
-      data-action="blackboard">
-
-      <span class="emoji">🧑‍🏫</span>
-
-      <strong>Quadro</strong>
-
-      <span>
-        Há uma sequência escrita.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="clock">
-
-      <span class="emoji">🕐</span>
-
-      <strong>Relógio</strong>
-
-      <span>
-        Ele parou em um horário estranho.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="desk">
-
-      <span class="emoji">🪑</span>
-
-      <strong>Carteira</strong>
-
-      <span>
-        Uma gaveta está fechada.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="cabinet">
-
-      <span class="emoji">🗄️</span>
-
-      <strong>Armário</strong>
-
-      <span>
-        Talvez a chave esteja por perto.
-      </span>
-
-    </button>
-
-
-    ${
-      state.solved.has("classroomDoor")
-
-        ?
-
-      `<div class="locked-card success">
-        ✓ A porta foi aberta.
-        Você pode seguir para o laboratório.
-      </div>`
-
-        :
-
-      `<div class="locked-card">
-        A porta está trancada.
-        Descubra o código da fechadura.
-      </div>`
-    }
-
-  `;
-
-}
-
-
-/* =========================
-   LABORATÓRIO
-========================= */
-
-function labHTML() {
-
-  return `
-
-    <button class="object-btn"
-      data-action="computer">
-
-      <span class="emoji">💻</span>
-
-      <strong>Computador</strong>
-
-      <span>
-        Ele pede uma senha de 4 dígitos.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="keyboard">
-
-      <span class="emoji">⌨️</span>
-
-      <strong>Teclado</strong>
-
-      <span>
-        Há marcas nas teclas.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="shelf">
-
-      <span class="emoji">📦</span>
-
-      <strong>Prateleira</strong>
-
-      <span>
-        Há vários equipamentos.
-      </span>
-
-    </button>
-
-
-    ${
-      state.solved.has("labComputer")
-
-        ?
-
-      `<div class="locked-card success">
-        ✓ Computador desbloqueado.
-        A pista indica quais livros procurar.
-      </div>`
-
-        :
-
-      `<div class="locked-card">
-        O computador está bloqueado.
-      </div>`
-    }
-
-  `;
-
-}
-
-
-/* =========================
-   BIBLIOTECA
-========================= */
-
-function libraryHTML() {
-
-  return `
-
-    <button class="object-btn"
-      data-action="books">
-
-      <span class="emoji">📚</span>
-
-      <strong>Estantes</strong>
-
-      <span>
-        Existem muitos livros.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="catalog">
-
-      <span class="emoji">🗃️</span>
-
-      <strong>Catálogo</strong>
-
-      <span>
-        Um catálogo antigo está sobre a mesa.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="reading">
-
-      <span class="emoji">🔎</span>
-
-      <strong>Mesa de leitura</strong>
-
-      <span>
-        Talvez alguém tenha deixado uma pista.
-      </span>
-
-    </button>
-
-
-    ${
-      state.solved.has("libraryBooks")
-
-        ?
-
-      `<div class="locked-card success">
-        ✓ Você encontrou o livro correto.
-      </div>`
-
-        :
-
-      `<div class="locked-card">
-        Encontre o livro indicado pela pista.
-      </div>`
-    }
-
-  `;
-
-}
-
-
-/* =========================
-   LABORATÓRIO DE CIÊNCIAS
-========================= */
-
-function scienceHTML() {
-
-  return `
-
-    <button class="object-btn"
-      data-action="flasks">
-
-      <span class="emoji">🧪</span>
-
-      <strong>Frascos</strong>
-
-      <span>
-        Há uma sequência de números.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="board">
-
-      <span class="emoji">🧮</span>
-
-      <strong>Quadro</strong>
-
-      <span>
-        Fórmulas estão escritas aqui.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="box">
-
-      <span class="emoji">🧰</span>
-
-      <strong>Caixa</strong>
-
-      <span>
-        Uma caixa está trancada.
-      </span>
-
-    </button>
-
-
-    ${
-      state.solved.has("sciencePuzzle")
-
-        ?
-
-      `<div class="locked-card success">
-        ✓ Enigma resolvido.
-        Você encontrou a pista do corredor.
-      </div>`
-
-        :
-
-      `<div class="locked-card">
-        Descubra a sequência correta.
-      </div>`
-    }
-
-  `;
-
-}
-
-
-/* =========================
-   CORREDOR
-========================= */
-
-function corridorHTML() {
-
-  return `
-
-    <button class="object-btn"
-      data-action="locker">
-
-      <span class="emoji">🗄️</span>
-
-      <strong>Armário</strong>
-
-      <span>
-        Um cadeado impede a abertura.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="notice">
-
-      <span class="emoji">📌</span>
-
-      <strong>Mural</strong>
-
-      <span>
-        Há vários avisos antigos.
-      </span>
-
-    </button>
-
-
-    <button class="object-btn"
-      data-action="camera">
-
-      <span class="emoji">📹</span>
-
-      <strong>Câmera</strong>
-
-      <span>
-        Uma câmera observa o corredor.
-      </span>
-
-    </button>
-
-
-    ${
-      state.solved.has("corridorDoor")
-
-        ?
-
-      `<div class="locked-card success">
-        ✓ Armário aberto.
-        Você encontrou a última pista.
-      </div>`
-
-        :
-
-      `<div class="locked-card">
-        Abra o armário de manutenção.
-      </div>`
-    }
-
-  `;
-
-}
-
-
-/* =========================
-   PORTÃO FINAL
-========================= */
-
-function exitHTML() {
-
-  return `
-
-    <div class="final-panel">
-
-      <div class="final-icon">
-        🔐
-      </div>
-
-      <h2>
-        PORTÃO PRINCIPAL
-      </h2>
-
-      <p>
-        O portão eletrônico exige
-        uma senha de quatro dígitos.
-      </p>
-
-      <input
-        id="finalAnswer"
-        type="number"
-        inputmode="numeric"
-        placeholder="Digite a senha"
-      >
-
-      <button
-        class="primary-btn"
-        onclick="finalCheck()">
-
-        ABRIR PORTÃO
-
-      </button>
-
-      <p id="puzzleMsg"></p>
-
-    </div>
-
-  `;
-
-}
-
-
-function finalCheck() {
-
-  const value =
-    $("#finalAnswer").value.trim();
-
-
-  if (value === "2016") {
-
-    win();
-
-  } else {
-
-    failPuzzle(
-      "Ainda não. Releia as pistas finais."
-    );
-
-  }
-
-}
-
-
-/* =========================
-   ERRO DE PUZZLE
-========================= */
-
-function failPuzzle(message) {
-
-  const p =
-    $("#puzzleMsg");
-
-
-  if (p) {
-
-    p.textContent = message;
-
-    p.className = "error";
-
-  }
-
-
-  const card =
-    document.querySelector(".modal-card");
-
-
-  if (card) {
-
-    card.classList.add("shake");
-
-    setTimeout(() => {
-
-      card.classList.remove("shake");
-
-    }, 400);
-
-  }
-
-
-  state.score =
-    Math.max(
-      0,
-      state.score - 20
-    );
-
-}
-
-
-/* =========================
-   MODAL
-========================= */
-
-function modal(html) {
-
-  $("#modalContent").innerHTML =
-    html;
-
-  $("#modal").classList.remove("hidden");
-
-}
-
-
-function closeModal() {
-
-  $("#modal")
-    .classList.add("hidden");
-
-}
-
-
-/* =========================
-   MENSAGEM
-========================= */
-
-function toast(message) {
-
-  const toastElement =
-    $("#toast");
-
-  toastElement.textContent =
-    message;
-
-  toastElement.classList.add("show");
-
-
-  setTimeout(() => {
-
-    toastElement.classList.remove("show");
-
-  }, 2200);
-
-}
-
-
-/* =========================
-   DICAS
-========================= */
-
-function hint() {
-
-  if (state.hints <= 0) {
-
-    return toast(
-      "Você já usou todas as dicas."
-    );
-
-  }
-
-
-  const hints = {
-
-    classroom:
-      "Observe o horário parado no relógio.",
-
-    lab:
-      "As teclas marcadas formam uma sequência de números pares.",
-
-    library:
-      "O computador revelou exatamente quais livros procurar.",
-
-    science:
-      "Na sequência dos frascos, cada número dobra.",
-
-    corridor:
-      "O mural fala sobre números de salas.",
-
-    exit:
-      "Combine os dois números destacados nas pistas finais."
-
-  };
-
-
-  state.hints--;
-
-  state.score =
-    Math.max(
-      0,
-      state.score - 75
-    );
-
-
-  $("#hintCount").textContent =
-    state.hints;
-
-
-  toast(
-    "💡 " + hints[state.room]
-  );
-
-}
-
-
-/* =========================
-   VITÓRIA
-========================= */
-
-function win() {
-
-  clearInterval(state.timer);
-
-  state.started = false;
-
-
-  const used =
-    900 - state.time;
-
-
-  const bonus =
-    Math.max(
-      0,
-      500 - Math.floor(used / 3)
-    );
-
-
-  const finalScore =
-    Math.max(
-      0,
-      state.score + bonus
-    );
-
-
-  $("#finalScore").textContent =
-    finalScore;
-
-
-  $("#winSummary").textContent =
-    `Você resolveu os desafios em
-     ${Math.floor(used / 60)}m
-     ${(used % 60).toString().padStart(2,"0")}s
-     e encontrou a senha 2016.`;
-
-
-  showScreen("winScreen");
-
-}
-
-
-/* =========================
-   BOTÕES
-========================= */
-
-$("#startBtn").onclick =
-  resetState;
-
-
-$("#howBtn").onclick =
-  () => showScreen("howScreen");
-
-
-$("#hintBtn").onclick =
-  hint;
-
-
-$("#restartBtn").onclick =
-  () => {
-
-    if (
-      confirm(
-        "Recomeçar o jogo? Seu progresso atual será perdido."
-      )
-    ) {
-
-      resetState();
-
-    }
-
-  };
-
-
-$("#playAgainBtn").onclick =
-  resetState;
-
-
-$("#tryAgainBtn").onclick =
-  resetState;
-
-
-$("#modalClose").onclick =
-  closeModal;
-
-
-$("#modal").addEventListener(
-  "click",
-  event => {
-
-    if (
-      event.target.id === "modal"
-    ) {
-
-      closeModal();
-
-    }
-
-  }
-);
-
-
-document
-  .querySelectorAll("[data-close]")
-  .forEach(button => {
-
-    button.onclick =
-      () => showScreen(
-        button.dataset.close
-      );
-
-  });
-
-
-/* =========================
-   FUNÇÕES DOS PUZZLES
-========================= */
-
-Object.assign(
-  window,
-  {
-
-    checkClassCode,
-
-    deskChoice,
-
-    computerCheck,
-
-    librarySolved,
-
-    flaskChoice,
-
-    lockerSolved,
-
-    finalCheck,
-
-    closeModal
-
-  }
-);
-
-
-updateTimer();
-
+/* =========================================================
+   ESCAPE SCHOOL – DEPOIS DO SINAL!
+   SCRIPT COMPLETO
+   Versão com visual 2D visto de cima
+   ========================================================= */
+
+const $ = (selector) => document.querySelector(selector);
 
 /* =========================================================
-   MODO 2D VISTO DE CIMA
-   Mantém os puzzles originais.
-========================================================= */
+   ESTADO DO JOGO
+   ========================================================= */
+
+const rooms = {
+    classroom: {
+        name: "Sala de Aula",
+        objective: "Descubra o código escondido na sala."
+    },
+    lab: {
+        name: "Laboratório de Informática",
+        objective: "Encontre a senha do computador."
+    },
+    library: {
+        name: "Biblioteca",
+        objective: "Descubra a palavra escondida nos livros."
+    },
+    science: {
+        name: "Laboratório de Ciências",
+        objective: "Resolva a sequência dos frascos."
+    },
+    corridor: {
+        name: "Corredor",
+        objective: "Abra o armário e descubra o próximo caminho."
+    },
+    exit: {
+        name: "Saída",
+        objective: "Descubra a senha final e escape da escola!"
+    }
+};
+
+const state = {
+    room: "classroom",
+    inventory: [],
+    solved: new Set(),
+    flags: {},
+    hints: 3,
+    time: 900,
+    timer: null,
+    score: 1000,
+    started: false
+};
+
+/* =========================================================
+   OBJETOS DAS SALAS
+   ========================================================= */
 
 const topDownObjects = {
 
-  classroom: [
-    ["blackboard", "🧑‍🏫", "Quadro", 18, 20],
-    ["clock", "🕐", "Relógio", 78, 18],
-    ["desk", "🪑", "Carteira", 42, 48],
-    ["cabinet", "🗄️", "Armário", 76, 65]
-  ],
+    classroom: [
+        { action: "blackboard", x: 18, y: 20, icon: "📋", label: "Quadro" },
+        { action: "clock", x: 78, y: 18, icon: "🕐", label: "Relógio" },
+        { action: "desk", x: 42, y: 48, icon: "🪑", label: "Mesa" },
+        { action: "cabinet", x: 76, y: 65, icon: "🗄️", label: "Armário" }
+    ],
 
-  lab: [
-    ["computer", "💻", "Computador", 65, 35],
-    ["keyboard", "⌨️", "Teclado", 65, 55],
-    ["shelf", "📦", "Prateleira", 20, 65]
-  ],
+    lab: [
+        { action: "computer", x: 65, y: 35, icon: "💻", label: "Computador" },
+        { action: "keyboard", x: 65, y: 55, icon: "⌨️", label: "Teclado" },
+        { action: "shelf", x: 20, y: 65, icon: "📚", label: "Estante" }
+    ],
 
-  library: [
-    ["books", "📚", "Estante", 20, 30],
-    ["catalog", "🗃️", "Catálogo", 48, 25],
-    ["reading", "🔎", "Mesa de leitura", 70, 65]
-  ],
+    library: [
+        { action: "books", x: 20, y: 30, icon: "📚", label: "Livros" },
+        { action: "catalog", x: 48, y: 25, icon: "📖", label: "Catálogo" },
+        { action: "reading", x: 70, y: 65, icon: "📕", label: "Mesa de leitura" }
+    ],
 
-  science: [
-    ["flasks", "🧪", "Frascos", 25, 32],
-    ["board", "🧮", "Quadro", 70, 25],
-    ["box", "🧰", "Caixa", 65, 65]
-  ],
+    science: [
+        { action: "flasks", x: 25, y: 32, icon: "🧪", label: "Frascos" },
+        { action: "board", x: 70, y: 25, icon: "🧮", label: "Quadro" },
+        { action: "box", x: 65, y: 65, icon: "📦", label: "Caixa" }
+    ],
 
-  corridor: [
-    ["locker", "🗄️", "Armário", 25, 48],
-    ["notice", "📌", "Mural", 50, 25],
-    ["camera", "📹", "Câmera", 78, 48]
-  ],
+    corridor: [
+        { action: "locker", x: 25, y: 48, icon: "🔐", label: "Armário" },
+        { action: "notice", x: 50, y: 25, icon: "📌", label: "Aviso" },
+        { action: "camera", x: 78, y: 48, icon: "📹", label: "Câmera" }
+    ],
 
-  exit: [
-    ["final", "🔐", "Portão", 50, 25]
-  ]
-
+    exit: [
+        { action: "final", x: 50, y: 25, icon: "🚪", label: "Portão" }
+    ]
 };
 
-
-/* =========================
-   POSIÇÃO DO JOGADOR
-========================= */
+/* =========================================================
+   PLAYER
+   ========================================================= */
 
 const topDownPlayer = {
-
-  classroom: {
     x: 50,
-    y: 78
-  },
-
-  lab: {
-    x: 50,
-    y: 78
-  },
-
-  library: {
-    x: 50,
-    y: 78
-  },
-
-  science: {
-    x: 50,
-    y: 78
-  },
-
-  corridor: {
-    x: 50,
-    y: 78
-  },
-
-  exit: {
-    x: 50,
-    y: 78
-  }
-
+    y: 78,
+    speed: 0.45,
+    keys: {}
 };
 
+/* =========================================================
+   UTILIDADES
+   ========================================================= */
 
-let topDownKeys = {};
+function showScreen(screenId) {
+    document.querySelectorAll(".screen").forEach(screen => {
+        screen.classList.remove("active");
+    });
 
-let topDownMoving = false;
+    const screen = document.getElementById(screenId);
 
+    if (screen) {
+        screen.classList.add("active");
+    }
+}
 
-/* =========================
-   MAPA 2D
-========================= */
+function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+
+    return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function addInventory(item) {
+    if (!state.inventory.includes(item)) {
+        state.inventory.push(item);
+    }
+}
+
+function hasItem(item) {
+    return state.inventory.includes(item);
+}
+
+function markSolved(name) {
+    state.solved.add(name);
+}
+
+function isSolved(name) {
+    return state.solved.has(name);
+}
+
+function message(text) {
+    const element = $("#messageText");
+
+    if (element) {
+        element.textContent = text;
+    }
+}
+
+function openModal(content) {
+    const modal = $("#modal");
+    const modalContent = $("#modalContent");
+
+    if (!modal || !modalContent) return;
+
+    modalContent.innerHTML = content;
+    modal.classList.add("active");
+}
+
+function closeModal() {
+    const modal = $("#modal");
+
+    if (modal) {
+        modal.classList.remove("active");
+    }
+}
+
+/* =========================================================
+   INICIAR / REINICIAR
+   ========================================================= */
+
+function resetState() {
+
+    if (state.timer) {
+        clearInterval(state.timer);
+    }
+
+    state.room = "classroom";
+    state.inventory = [];
+    state.solved = new Set();
+    state.flags = {};
+    state.hints = 3;
+    state.time = 900;
+    state.score = 1000;
+    state.started = true;
+
+    topDownPlayer.x = 50;
+    topDownPlayer.y = 78;
+
+    showScreen("gameScreen");
+
+    updateHintCounter();
+
+    render();
+
+    startTimer();
+}
+
+function startTimer() {
+
+    if (state.timer) {
+        clearInterval(state.timer);
+    }
+
+    state.timer = setInterval(() => {
+
+        if (!state.started) return;
+
+        state.time--;
+
+        if (state.time < 0) {
+            state.time = 0;
+        }
+
+        updateTimer();
+
+        if (state.time <= 0) {
+            lose();
+        }
+
+    }, 1000);
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+
+function render() {
+
+    updateLocation();
+    updateTimer();
+    updateMap();
+    updateInventory();
+    updateProgress();
+    updateObjective();
+    updateHintCounter();
+
+    const room = $("#room");
+
+    if (room) {
+        room.innerHTML = topDownRoomHTML(state.room);
+    }
+
+    bindTopDownObjects();
+}
+
+function updateLocation() {
+
+    const element = $("#locationName");
+
+    if (element && rooms[state.room]) {
+        element.textContent = rooms[state.room].name;
+    }
+}
+
+function updateTimer() {
+
+    const element = $("#timer");
+
+    if (element) {
+        element.textContent = formatTime(state.time);
+    }
+}
+
+function updateHintCounter() {
+
+    const element = $("#hintCount");
+
+    if (element) {
+        element.textContent = state.hints;
+    }
+}
+
+function updateObjective() {
+
+    const element = $("#objectiveText");
+
+    if (!element || !rooms[state.room]) return;
+
+    element.textContent = rooms[state.room].objective;
+}
+
+function updateInventory() {
+
+    const element = $("#inventory");
+
+    if (!element) return;
+
+    if (state.inventory.length === 0) {
+        element.innerHTML = "<span>Nenhum item</span>";
+        return;
+    }
+
+    element.innerHTML = state.inventory
+        .map(item => `<span class="inventory-item">${item}</span>`)
+        .join("");
+}
+
+function updateProgress() {
+
+    const element = $("#progressText");
+
+    if (!element) return;
+
+    const total = 5;
+    const completed = state.solved.size;
+
+    element.textContent = `${completed}/${total}`;
+}
+
+function updateMap() {
+
+    const container = $("#mapButtons");
+
+    if (!container) return;
+
+    const roomOrder = [
+        "classroom",
+        "lab",
+        "library",
+        "science",
+        "corridor",
+        "exit"
+    ];
+
+    container.innerHTML = "";
+
+    roomOrder.forEach(id => {
+
+        const button = document.createElement("button");
+
+        button.textContent = rooms[id].name;
+        button.className = "map-btn";
+
+        if (id === state.room) {
+            button.classList.add("active");
+        }
+
+        button.onclick = () => goRoom(id);
+
+        container.appendChild(button);
+    });
+}
+
+/* =========================================================
+   MOVIMENTAÇÃO ENTRE SALAS
+   ========================================================= */
+
+function goRoom(id) {
+
+    if (!rooms[id]) return;
+
+    if (id === "lab" && !isSolved("classroomDoor")) {
+        message("Você ainda não descobriu como sair da sala de aula.");
+        return;
+    }
+
+    if (id === "library" && !isSolved("labComputer")) {
+        message("O laboratório ainda está bloqueado.");
+        return;
+    }
+
+    if (id === "science" && !isSolved("libraryBooks")) {
+        message("Você precisa resolver o enigma da biblioteca.");
+        return;
+    }
+
+    if (id === "corridor" && !isSolved("sciencePuzzle")) {
+        message("Você precisa resolver o laboratório de ciências.");
+        return;
+    }
+
+    if (id === "exit" && !isSolved("corridorDoor")) {
+        message("A saída ainda está trancada.");
+        return;
+    }
+
+    state.room = id;
+
+    topDownPlayer.x = 50;
+    topDownPlayer.y = 78;
+
+    message(`Você entrou em: ${rooms[id].name}`);
+
+    render();
+}
+
+/* =========================================================
+   SALAS EM 2D VISTAS DE CIMA
+   ========================================================= */
 
 function topDownRoomHTML(id) {
 
-  const room =
-    rooms[id];
+    const room = rooms[id];
+    const objects = topDownObjects[id] || [];
 
-  const player =
-    topDownPlayer[id] ||
-    {
-      x: 50,
-      y: 78
-    };
+    let objectsHTML = "";
 
-  const objects =
-    topDownObjects[id] ||
-    [];
+    objects.forEach(obj => {
 
-
-  return `
-
-    <div class="topdown-wrap">
-
-      <div class="topdown-header">
-
-        <div>
-
-          <h2>
-            ${room.icon}
-            ${room.name}
-          </h2>
-
-          <p>
-            ${sceneDescription(id)}
-          </p>
-
-        </div>
-
-        <div class="topdown-help">
-          WASD / SETAS para andar
-        </div>
-
-      </div>
-
-
-      <div
-        class="topdown-map"
-        id="topdownMap"
-      >
-
-        <div
-          class="topdown-wall wall-top">
-        </div>
-
-        <div
-          class="topdown-wall wall-bottom">
-        </div>
-
-        <div
-          class="topdown-wall wall-left">
-        </div>
-
-        <div
-          class="topdown-wall wall-right">
-        </div>
-
-
-        <div class="topdown-floor-lines">
-        </div>
-
-
-        ${
-          objects.map(
-            ([action, icon, name, x, y]) => `
-
-              <button
-
+        objectsHTML += `
+            <button
                 class="topdown-object"
+                data-action="${obj.action}"
+                style="left:${obj.x}%; top:${obj.y}%"
+                title="${obj.label}"
+            >
+                <span class="object-icon">${obj.icon}</span>
+                <span class="object-label">${obj.label}</span>
+            </button>
+        `;
+    });
 
-                data-action="${action}"
+    return `
+        <div class="topdown-wrap">
 
-                style="
-                  left:${x}%;
-                  top:${y}%;
-                "
+            <div class="topdown-header">
+                <strong>${room.name}</strong>
+                <span>Explore a sala e clique nos objetos.</span>
+            </div>
 
-                title="${name}"
+            <div class="topdown-map">
 
-              >
+                <div class="topdown-wall wall-top"></div>
+                <div class="topdown-wall wall-bottom"></div>
+                <div class="topdown-wall wall-left"></div>
+                <div class="topdown-wall wall-right"></div>
 
-                <span>
-                  ${icon}
-                </span>
+                <div class="floor-line line-1"></div>
+                <div class="floor-line line-2"></div>
+                <div class="floor-line line-3"></div>
+                <div class="floor-line line-4"></div>
+
+                <div class="room-label start-label">
+                    INÍCIO
+                </div>
+
+                <div class="room-label exit-label">
+                    SAÍDA
+                </div>
+
+                ${objectsHTML}
+
+                <div
+                    id="topdownPlayer"
+                    class="topdown-player"
+                    style="left:${topDownPlayer.x}%; top:${topDownPlayer.y}%"
+                >
+                    🧍
+                </div>
+
+            </div>
+
+            <div class="movement-area">
+
+                <div class="movement-title">
+                    MOVIMENTAÇÃO
+                </div>
+
+                <div class="movement-buttons">
+
+                    <button data-move="up">⬆️</button>
+
+                    <div>
+                        <button data-move="left">⬅️</button>
+                        <button data-move="down">⬇️</button>
+                        <button data-move="right">➡️</button>
+                    </div>
+
+                </div>
 
                 <small>
-                  ${name}
+                    Use as setas ou W A S D para andar.
                 </small>
 
-              </button>
-
-            `
-          ).join("")
-        }
-
-
-        <div
-
-          id="topdownPlayer"
-
-          class="topdown-player"
-
-          style="
-            left:${player.x}%;
-            top:${player.y}%;
-          "
-
-        >
-
-          <span>
-            🧑‍🎓
-          </span>
-
-          <small>
-            VOCÊ
-          </small>
+            </div>
 
         </div>
-
-
-        <div
-          class="topdown-label label-start"
-        >
-          INÍCIO
-        </div>
-
-
-        <div
-          class="topdown-label label-exit"
-        >
-          SAÍDA
-        </div>
-
-      </div>
-
-
-      <div class="topdown-controls">
-
-        <button data-move="up">
-          ▲
-        </button>
-
-        <div>
-
-          <button data-move="left">
-            ◀
-          </button>
-
-          <button data-move="down">
-            ▼
-          </button>
-
-          <button data-move="right">
-            ▶
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <div class="topdown-status">
-
-        <strong>
-          🎯 Explore a sala:
-        </strong>
-
-        aproxime-se dos objetos e
-        clique neles para investigar.
-
-      </div>
-
-    </div>
-
-  `;
-
+    `;
 }
 
-
-/* =========================
-   ATIVA O MAPA 2D
-========================= */
-
-roomHTML = function(id) {
-
-  return topDownRoomHTML(id);
-
-};
-
-
-/* =========================
-   OBJETOS DO MAPA
-========================= */
+/* =========================================================
+   CONTROLES DO 2D
+   ========================================================= */
 
 function bindTopDownObjects() {
 
-  document
-    .querySelectorAll(".topdown-object")
-    .forEach(button => {
+    document.querySelectorAll("[data-action]").forEach(button => {
 
-      button.onclick = () => {
+        button.addEventListener("click", () => {
 
-        const action =
-          button.dataset.action;
+            const action = button.dataset.action;
 
-        actions(action);
-
-      };
-
+            actions(action);
+        });
     });
 
+    document.querySelectorAll("[data-move]").forEach(button => {
 
-  document
-    .querySelectorAll("[data-move]")
-    .forEach(button => {
+        const direction = button.dataset.move;
 
-      const direction =
-        button.dataset.move;
+        const start = (event) => {
+            event.preventDefault();
+            topDownPlayer.keys[direction] = true;
+        };
 
+        const stop = (event) => {
+            event.preventDefault();
+            topDownPlayer.keys[direction] = false;
+        };
 
-      const start = event => {
-
-        event.preventDefault();
-
-        topDownKeys[direction] = true;
-
-        topDownMoving = true;
-
-      };
-
-
-      const stop = event => {
-
-        event.preventDefault();
-
-        topDownKeys[direction] = false;
-
-        topDownMoving = false;
-
-      };
-
-
-      button.addEventListener(
-        "pointerdown",
-        start
-      );
-
-
-      button.addEventListener(
-        "pointerup",
-        stop
-      );
-
-
-      button.addEventListener(
-        "pointercancel",
-        stop
-      );
-
-
-      button.addEventListener(
-        "pointerleave",
-        stop
-      );
-
+        button.addEventListener("pointerdown", start);
+        button.addEventListener("pointerup", stop);
+        button.addEventListener("pointerleave", stop);
+        button.addEventListener("pointercancel", stop);
     });
-
 }
 
+/* =========================================================
+   TECLADO
+   ========================================================= */
 
-/* =========================
-   MOVIMENTO DO JOGADOR
-========================= */
+document.addEventListener("keydown", event => {
 
-function updateTopDownPlayer() {
+    const key = event.key.toLowerCase();
 
-  const player =
-    topDownPlayer[state.room];
+    if (key === "arrowup" || key === "w") {
+        topDownPlayer.keys.up = true;
+    }
 
-  const el =
-    $("#topdownPlayer");
+    if (key === "arrowdown" || key === "s") {
+        topDownPlayer.keys.down = true;
+    }
 
+    if (key === "arrowleft" || key === "a") {
+        topDownPlayer.keys.left = true;
+    }
 
-  if (!player || !el)
-    return;
+    if (key === "arrowright" || key === "d") {
+        topDownPlayer.keys.right = true;
+    }
+});
 
+document.addEventListener("keyup", event => {
 
-  let dx = 0;
+    const key = event.key.toLowerCase();
 
-  let dy = 0;
+    if (key === "arrowup" || key === "w") {
+        topDownPlayer.keys.up = false;
+    }
 
+    if (key === "arrowdown" || key === "s") {
+        topDownPlayer.keys.down = false;
+    }
 
-  if (
-    topDownKeys.up ||
-    topDownKeys.w ||
-    topDownKeys.ArrowUp
-  ) {
+    if (key === "arrowleft" || key === "a") {
+        topDownPlayer.keys.left = false;
+    }
 
-    dy -= 1;
+    if (key === "arrowright" || key === "d") {
+        topDownPlayer.keys.right = false;
+    }
+});
 
-  }
-
-
-  if (
-    topDownKeys.down ||
-    topDownKeys.s ||
-    topDownKeys.ArrowDown
-  ) {
-
-    dy += 1;
-
-  }
-
-
-  if (
-    topDownKeys.left ||
-    topDownKeys.a ||
-    topDownKeys.ArrowLeft
-  ) {
-
-    dx -= 1;
-
-  }
-
-
-  if (
-    topDownKeys.right ||
-    topDownKeys.d ||
-    topDownKeys.ArrowRight
-  ) {
-
-    dx += 1;
-
-  }
-
-
-  if (
-    dx !== 0 ||
-    dy !== 0
-  ) {
-
-    const speed = 0.65;
-
-
-    player.x =
-      Math.max(
-        7,
-        Math.min(
-          93,
-          player.x +
-          dx * speed
-        )
-      );
-
-
-    player.y =
-      Math.max(
-        10,
-        Math.min(
-          90,
-          player.y +
-          dy * speed
-        )
-      );
-
-
-    el.style.left =
-      `${player.x}%`;
-
-
-    el.style.top =
-      `${player.y}%`;
-
-  }
-
-}
-
-
-/* =========================
-   LOOP
-========================= */
+/* =========================================================
+   LOOP DO JOGADOR
+   ========================================================= */
 
 function topDownLoop() {
 
-  updateTopDownPlayer();
+    if (state.started) {
 
-  requestAnimationFrame(
-    topDownLoop
-  );
+        let moved = false;
 
+        if (topDownPlayer.keys.up) {
+            topDownPlayer.y -= topDownPlayer.speed;
+            moved = true;
+        }
+
+        if (topDownPlayer.keys.down) {
+            topDownPlayer.y += topDownPlayer.speed;
+            moved = true;
+        }
+
+        if (topDownPlayer.keys.left) {
+            topDownPlayer.x -= topDownPlayer.speed;
+            moved = true;
+        }
+
+        if (topDownPlayer.keys.right) {
+            topDownPlayer.x += topDownPlayer.speed;
+            moved = true;
+        }
+
+        topDownPlayer.x = Math.max(
+            7,
+            Math.min(93, topDownPlayer.x)
+        );
+
+        topDownPlayer.y = Math.max(
+            10,
+            Math.min(90, topDownPlayer.y)
+        );
+
+        if (moved) {
+
+            const player = document.getElementById("topdownPlayer");
+
+            if (player) {
+                player.style.left = `${topDownPlayer.x}%`;
+                player.style.top = `${topDownPlayer.y}%`;
+            }
+        }
+    }
+
+    requestAnimationFrame(topDownLoop);
 }
 
-
-/* =========================
-   TECLADO
-========================= */
-
-document.addEventListener(
-  "keydown",
-  event => {
-
-    const key =
-      event.key;
-
-
-    if (
-
-      [
-        "ArrowUp",
-        "ArrowDown",
-        "ArrowLeft",
-        "ArrowRight",
-        "w",
-        "a",
-        "s",
-        "d",
-        "W",
-        "A",
-        "S",
-        "D"
-      ].includes(key)
-
-    ) {
-
-      event.preventDefault();
-
-
-      if (
-        key === "ArrowUp" ||
-        key === "w" ||
-        key === "W"
-      ) {
-
-        topDownKeys.up = true;
-
-      }
-
-
-      if (
-        key === "ArrowDown" ||
-        key === "s" ||
-        key === "S"
-      ) {
-
-        topDownKeys.down = true;
-
-      }
-
-
-      if (
-        key === "ArrowLeft" ||
-        key === "a" ||
-        key === "A"
-      ) {
-
-        topDownKeys.left = true;
-
-      }
-
-
-      if (
-        key === "ArrowRight" ||
-        key === "d" ||
-        key === "D"
-      ) {
-
-        topDownKeys.right = true;
-
-      }
-
-    }
-
-  }
-);
-
-
-document.addEventListener(
-  "keyup",
-  event => {
-
-    const key =
-      event.key;
-
-
-    if (
-      key === "ArrowUp" ||
-      key === "w" ||
-      key === "W"
-    ) {
-
-      topDownKeys.up = false;
-
-    }
-
-
-    if (
-      key === "ArrowDown" ||
-      key === "s" ||
-      key === "S"
-    ) {
-
-      topDownKeys.down = false;
-
-    }
-
-
-    if (
-      key === "ArrowLeft" ||
-      key === "a" ||
-      key === "A"
-    ) {
-
-      topDownKeys.left = false;
-
-    }
-
-
-    if (
-      key === "ArrowRight" ||
-      key === "d" ||
-      key === "D"
-    ) {
-
-      topDownKeys.right = false;
-
-    }
-
-  }
-);
-
-
-/* =========================
-   BIND DOS OBJETOS
-========================= */
-
-const originalBindObjects =
-  bindObjects;
-
-
-bindObjects = function() {
-
-  originalBindObjects();
-
-  bindTopDownObjects();
-
-};
-
-
-/* =========================
-   INICIA O MOVIMENTO
-========================= */
-
 topDownLoop();
+
+/* =========================================================
+   SISTEMA DE AÇÕES
+   ========================================================= */
+
+function actions(action) {
+
+    switch (action) {
+
+        case "blackboard":
+            openBlackboard();
+            break;
+
+        case "clock":
+            openClock();
+            break;
+
+        case "desk":
+            openDesk();
+            break;
+
+        case "cabinet":
+            openCabinet();
+            break;
+
+        case "computer":
+            openComputer();
+            break;
+
+        case "keyboard":
+            openKeyboard();
+            break;
+
+        case "shelf":
+            openShelf();
+            break;
+
+        case "books":
+            openBooks();
+            break;
+
+        case "catalog":
+            openCatalog();
+            break;
+
+        case "reading":
+            openReading();
+            break;
+
+        case "flasks":
+            openFlasks();
+            break;
+
+        case "board":
+            openBoard();
+            break;
+
+        case "box":
+            openBox();
+            break;
+
+        case "locker":
+            openLocker();
+            break;
+
+        case "notice":
+            openNotice();
+            break;
+
+        case "camera":
+            openCamera();
+            break;
+
+        case "final":
+            openFinal();
+            break;
+    }
+}
+
+/* =========================================================
+   SALA DE AULA
+   ========================================================= */
+
+function openBlackboard() {
+
+    if (isSolved("blackboard")) {
+        openModal(`
+            <h2>Quadro</h2>
+            <p>Você já examinou o quadro.</p>
+            <p><strong>Parece que o relógio é importante...</strong></p>
+        `);
+        return;
+    }
+
+    openModal(`
+        <h2>Quadro</h2>
+
+        <p>Há uma anotação escrita no canto do quadro:</p>
+
+        <div class="clue">
+            "O tempo pode abrir portas."
+        </div>
+
+        <p>Talvez você deva observar o relógio.</p>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Entendi
+        </button>
+    `);
+
+    markSolved("blackboard");
+}
+
+function openClock() {
+
+    openModal(`
+        <h2>Relógio</h2>
+
+        <p>O relógio está parado exatamente em:</p>
+
+        <div class="big-code">
+            16:20
+        </div>
+
+        <p>Talvez esse horário seja um código.</p>
+
+        <input
+            id="classCode"
+            type="text"
+            maxlength="4"
+            placeholder="Digite o código"
+        >
+
+        <button class="primary-btn" onclick="checkClassCode()">
+            Confirmar
+        </button>
+    `);
+}
+
+function checkClassCode() {
+
+    const input = $("#classCode");
+
+    if (!input) return;
+
+    const value = input.value.trim();
+
+    if (value === "1620") {
+
+        markSolved("classroomDoor");
+
+        state.score += 100;
+
+        addInventory("🔑 Chave da sala");
+
+        closeModal();
+
+        message("Código correto! Você encontrou a chave da sala.");
+
+        render();
+
+    } else {
+
+        state.score -= 25;
+
+        message("Código incorreto. Observe melhor o relógio.");
+
+        input.value = "";
+    }
+}
+
+function openDesk() {
+
+    if (hasItem("🔑 Chave da sala")) {
+
+        openModal(`
+            <h2>Mesa</h2>
+            <p>Você encontra apenas materiais escolares.</p>
+            <p>A chave que encontrou parece ser mais importante.</p>
+
+            <button class="primary-btn" onclick="closeModal()">
+                Fechar
+            </button>
+        `);
+
+        return;
+    }
+
+    openModal(`
+        <h2>Mesa</h2>
+
+        <p>Há duas gavetas.</p>
+
+        <button class="choice-btn" onclick="deskChoice('A')">
+            Abrir gaveta A
+        </button>
+
+        <button class="choice-btn" onclick="deskChoice('B')">
+            Abrir gaveta B
+        </button>
+    `);
+}
+
+function deskChoice(choice) {
+
+    if (choice === "A") {
+
+        addInventory("🔑 Chave da sala");
+
+        closeModal();
+
+        message("Você encontrou uma chave!");
+
+        render();
+
+    } else {
+
+        openModal(`
+            <h2>Gaveta B</h2>
+            <p>Está vazia.</p>
+
+            <button class="primary-btn" onclick="closeModal()">
+                Voltar
+            </button>
+        `);
+    }
+}
+
+function openCabinet() {
+
+    openModal(`
+        <h2>Armário</h2>
+
+        <p>O armário está cheio de livros e materiais antigos.</p>
+
+        <p>
+            Você encontra uma pequena frase:
+            <strong>"A tecnologia guarda segredos."</strong>
+        </p>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+/* =========================================================
+   LABORATÓRIO DE INFORMÁTICA
+   ========================================================= */
+
+function openComputer() {
+
+    if (isSolved("labComputer")) {
+
+        openModal(`
+            <h2>Computador</h2>
+
+            <p>O computador está desbloqueado.</p>
+
+            <p>
+                Na tela aparece:
+                <strong>"Procure a biblioteca."</strong>
+            </p>
+
+            <button class="primary-btn" onclick="closeModal()">
+                Fechar
+            </button>
+        `);
+
+        return;
+    }
+
+    openModal(`
+        <h2>Computador</h2>
+
+        <p>O computador está protegido por uma senha.</p>
+
+        <p>
+            A tela mostra:
+            <strong>"Descubra a sequência no teclado."</strong>
+        </p>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+function openKeyboard() {
+
+    openModal(`
+        <h2>Teclado</h2>
+
+        <p>Algumas teclas estão destacadas:</p>
+
+        <div class="big-code">
+            2 - 4 - 6 - 8
+        </div>
+
+        <p>Isso provavelmente é a senha.</p>
+
+        <input
+            id="computerCode"
+            type="text"
+            maxlength="4"
+            placeholder="Senha"
+        >
+
+        <button class="primary-btn" onclick="computerCheck()">
+            Confirmar
+        </button>
+    `);
+}
+
+function computerCheck() {
+
+    const input = $("#computerCode");
+
+    if (!input) return;
+
+    if (input.value.trim() === "2468") {
+
+        markSolved("labComputer");
+
+        state.score += 150;
+
+        addInventory("💾 Acesso ao computador");
+
+        closeModal();
+
+        message("Senha correta! O computador foi desbloqueado.");
+
+        render();
+
+    } else {
+
+        state.score -= 25;
+
+        message("Senha incorreta.");
+
+        input.value = "";
+    }
+}
+
+function openShelf() {
+
+    if (!hasItem("🔋 Bateria")) {
+
+        addInventory("🔋 Bateria");
+
+        openModal(`
+            <h2>Estante</h2>
+
+            <p>
+                Entre os equipamentos antigos você encontrou
+                uma bateria.
+            </p>
+
+            <p><strong>Item adicionado ao inventário.</strong></p>
+
+            <button class="primary-btn" onclick="closeModal()">
+                Pegar
+            </button>
+        `);
+
+        return;
+    }
+
+    openModal(`
+        <h2>Estante</h2>
+
+        <p>Você já pegou a bateria.</p>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+/* =========================================================
+   BIBLIOTECA
+   ========================================================= */
+
+function openBooks() {
+
+    openModal(`
+        <h2>Livros</h2>
+
+        <p>Três livros parecem diferentes:</p>
+
+        <div class="clue">
+            Livro 3<br>
+            Livro 7<br>
+            Livro 12
+        </div>
+
+        <p>
+            Os números parecem formar alguma coisa.
+        </p>
+
+        <button class="primary-btn" onclick="librarySolved()">
+            Examinar
+        </button>
+    `);
+}
+
+function librarySolved() {
+
+    markSolved("libraryBooks");
+
+    state.score += 150;
+
+    addInventory("📕 Livro com a pista");
+
+    openModal(`
+        <h2>Pista encontrada!</h2>
+
+        <p>Os livros formam a palavra:</p>
+
+        <div class="big-code">
+            CORREDOR
+        </div>
+
+        <p>
+            Talvez essa palavra indique para onde você deve ir.
+        </p>
+
+        <button class="primary-btn" onclick="closeModal(); render()">
+            Continuar
+        </button>
+    `);
+}
+
+function openCatalog() {
+
+    openModal(`
+        <h2>Catálogo</h2>
+
+        <p>
+            O catálogo possui vários registros de alunos.
+        </p>
+
+        <p>
+            Um registro está marcado:
+        </p>
+
+        <div class="clue">
+            "A resposta está onde os livros descansam."
+        </div>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+function openReading() {
+
+    if (!hasItem("🔎 Lente")) {
+
+        addInventory("🔎 Lente");
+
+        openModal(`
+            <h2>Mesa de leitura</h2>
+
+            <p>
+                Debaixo da mesa você encontrou uma pequena lente.
+            </p>
+
+            <p><strong>Lente adicionada ao inventário.</strong></p>
+
+            <button class="primary-btn" onclick="closeModal()">
+                Pegar
+            </button>
+        `);
+
+        return;
+    }
+
+    openModal(`
+        <h2>Mesa de leitura</h2>
+
+        <p>Você já encontrou a lente.</p>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+/* =========================================================
+   LABORATÓRIO DE CIÊNCIAS
+   ========================================================= */
+
+function openFlasks() {
+
+    openModal(`
+        <h2>Frascos</h2>
+
+        <p>
+            Os frascos possuem números:
+        </p>
+
+        <div class="big-code">
+            1 → 2 → 4 → 8 → ?
+        </div>
+
+        <p>
+            Qual é o próximo número?
+        </p>
+
+        <input
+            id="flaskCode"
+            type="number"
+            placeholder="Resposta"
+        >
+
+        <button class="primary-btn" onclick="flaskChoice()">
+            Confirmar
+        </button>
+    `);
+}
+
+function flaskChoice() {
+
+    const input = $("#flaskCode");
+
+    if (!input) return;
+
+    if (input.value.trim() === "16") {
+
+        markSolved("sciencePuzzle");
+
+        state.score += 200;
+
+        addInventory("🪪 Cartão de acesso");
+
+        closeModal();
+
+        message("Sequência correta! Você encontrou um cartão.");
+
+        render();
+
+    } else {
+
+        state.score -= 30;
+
+        message("Resposta incorreta. Observe a sequência.");
+
+        input.value = "";
+    }
+}
+
+function openBoard() {
+
+    openModal(`
+        <h2>Quadro de Ciências</h2>
+
+        <p>Há uma expressão escrita:</p>
+
+        <div class="big-code">
+            2 × 2 × 2 × 2
+        </div>
+
+        <p>
+            Ela parece confirmar a lógica da sequência dos frascos.
+        </p>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+function openBox() {
+
+    if (!isSolved("sciencePuzzle")) {
+
+        openModal(`
+            <h2>Caixa</h2>
+
+            <p>
+                A caixa está trancada.
+            </p>
+
+            <p>
+                Você precisa resolver o enigma dos frascos primeiro.
+            </p>
+
+            <button class="primary-btn" onclick="closeModal()">
+                Fechar
+            </button>
+        `);
+
+        return;
+    }
+
+    openModal(`
+        <h2>Caixa</h2>
+
+        <p>
+            O cartão encontrado no laboratório permite abrir a caixa.
+        </p>
+
+        <p>
+            Dentro dela existe uma anotação:
+        </p>
+
+        <div class="clue">
+            "O corredor guarda a última chave."
+        </div>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+/* =========================================================
+   CORREDOR
+   ========================================================= */
+
+function openLocker() {
+
+    openModal(`
+        <h2>Armário do corredor</h2>
+
+        <p>
+            O armário possui um teclado numérico.
+        </p>
+
+        <p>
+            Uma pequena etiqueta mostra:
+        </p>
+
+        <div class="big-code">
+            1 - 2 - 3
+        </div>
+
+        <input
+            id="lockerCode"
+            type="text"
+            maxlength="3"
+            placeholder="Código"
+        >
+
+        <button class="primary-btn" onclick="lockerSolved()">
+            Abrir
+        </button>
+    `);
+}
+
+function lockerSolved() {
+
+    const input = $("#lockerCode");
+
+    if (!input) return;
+
+    if (input.value.trim() === "123") {
+
+        markSolved("corridorDoor");
+
+        state.score += 200;
+
+        addInventory("📝 Bilhete da saída");
+
+        closeModal();
+
+        message("Armário aberto! Você encontrou um bilhete.");
+
+        render();
+
+    } else {
+
+        state.score -= 25;
+
+        message("Código incorreto.");
+
+        input.value = "";
+    }
+}
+
+function openNotice() {
+
+    openModal(`
+        <h2>Aviso</h2>
+
+        <p>
+            Há um aviso antigo preso na parede.
+        </p>
+
+        <div class="clue">
+            "A câmera observa tudo,
+            mas não consegue esconder o que está escrito."
+        </div>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+function openCamera() {
+
+    openModal(`
+        <h2>Câmera</h2>
+
+        <p>
+            A câmera está apontada para a saída.
+        </p>
+
+        <p>
+            Em uma pequena etiqueta está escrito:
+        </p>
+
+        <div class="big-code">
+            2016
+        </div>
+
+        <p>
+            Talvez esse seja o código final.
+        </p>
+
+        <button class="primary-btn" onclick="closeModal()">
+            Fechar
+        </button>
+    `);
+}
+
+/* =========================================================
+   SAÍDA FINAL
+   ========================================================= */
+
+function openFinal() {
+
+    openModal(`
+        <h2>🚪 Portão da Escola</h2>
+
+        <p>
+            Você chegou à saída!
+        </p>
+
+        <p>
+            O portão pede uma senha de quatro números.
+        </p>
+
+        <input
+            id="finalCode"
+            type="text"
+            maxlength="4"
+            placeholder="Senha final"
+        >
+
+        <button class="primary-btn" onclick="finalCheck()">
+            Abrir portão
+        </button>
+    `);
+}
+
+function finalCheck() {
+
+    const input = $("#finalCode");
+
+    if (!input) return;
+
+    if (input.value.trim() === "2016") {
+
+        closeModal();
+
+        state.score += 300;
+
+        win();
+
+    } else {
+
+        state.score -= 50;
+
+        message("Senha final incorreta.");
+
+        input.value = "";
+    }
+}
+
+/* =========================================================
+   VITÓRIA
+   ========================================================= */
+
+function win() {
+
+    state.started = false;
+
+    if (state.timer) {
+        clearInterval(state.timer);
+        state.timer = null;
+    }
+
+    if (state.time > 0) {
+        state.score += state.time;
+    }
+
+    if (state.score < 0) {
+        state.score = 0;
+    }
+
+    const summary = $("#winSummary");
+    const finalScore = $("#finalScore");
+
+    if (summary) {
+        summary.textContent =
+            "Você resolveu os enigmas e conseguiu escapar da escola antes que o tempo acabasse!";
+    }
+
+    if (finalScore) {
+        finalScore.textContent = state.score;
+    }
+
+    showScreen("winScreen");
+}
+
+/* =========================================================
+   DERROTA
+   ========================================================= */
+
+function lose() {
+
+    state.started = false;
+
+    if (state.timer) {
+        clearInterval(state.timer);
+        state.timer = null;
+    }
+
+    showScreen("loseScreen");
+}
+
+/* =========================================================
+   DICAS
+   ========================================================= */
+
+function useHint() {
+
+    if (state.hints <= 0) {
+        message("Você não possui mais dicas.");
+        return;
+    }
+
+    state.hints--;
+
+    updateHintCounter();
+
+    const hints = {
+
+        classroom:
+            "Dica: observe o relógio. O horário mostrado pode ser usado como código.",
+
+        lab:
+            "Dica: procure uma sequência numérica perto do computador.",
+
+        library:
+            "Dica: os livros 3, 7 e 12 são importantes.",
+
+        science:
+            "Dica: a sequência 1, 2, 4, 8 continua dobrando.",
+
+        corridor:
+            "Dica: observe o código indicado no armário.",
+
+        exit:
+            "Dica: a câmera possui uma pista importante para a senha final."
+    };
+
+    message(hints[state.room] || "Explore melhor o ambiente.");
+}
+
+/* =========================================================
+   EVENTOS DOS BOTÕES DO HTML
+   ========================================================= */
+
+const startButton = $("#startBtn");
+
+if (startButton) {
+    startButton.addEventListener("click", resetState);
+}
+
+const howButton = $("#howBtn");
+
+if (howButton) {
+
+    howButton.addEventListener("click", () => {
+
+        openModal(`
+            <h2>Como jogar</h2>
+
+            <p>
+                Explore cada sala e procure pistas.
+            </p>
+
+            <p>
+                Clique nos objetos para investigar.
+            </p>
+
+            <p>
+                Você também pode andar pelo mapa usando
+                as setas ou as teclas W, A, S e D.
+            </p>
+
+            <p>
+                Resolva os enigmas para desbloquear as próximas salas.
+            </p>
+
+            <button class="primary-btn" onclick="closeModal()">
+                Entendi
+            </button>
+        `);
+    });
+}
+
+const hintButton = $("#hintBtn");
+
+if (hintButton) {
+    hintButton.addEventListener("click", useHint);
+}
+
+const restartButton = $("#restartBtn");
+
+if (restartButton) {
+    restartButton.addEventListener("click", resetState);
+}
+
+const playAgainButton = $("#playAgainBtn");
+
+if (playAgainButton) {
+    playAgainButton.addEventListener("click", resetState);
+}
+
+const tryAgainButton = $("#tryAgainBtn");
+
+if (tryAgainButton) {
+    tryAgainButton.addEventListener("click", resetState);
+}
+
+const modalClose = $("#modalClose");
+
+if (modalClose) {
+    modalClose.addEventListener("click", closeModal);
+}
+
+/* =========================================================
+   FECHAR MODAL CLICANDO FORA
+   ========================================================= */
+
+const modal = $("#modal");
+
+if (modal) {
+
+    modal.addEventListener("click", event => {
+
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+}
+
+/* =========================================================
+   GARANTIA PARA BOTÕES INLINE
+   ========================================================= */
+
+window.checkClassCode = checkClassCode;
+window.deskChoice = deskChoice;
+window.computerCheck = computerCheck;
+window.librarySolved = librarySolved;
+window.flaskChoice = flaskChoice;
+window.lockerSolved = lockerSolved;
+window.finalCheck = finalCheck;
+window.closeModal = closeModal;
+
+/* =========================================================
+   FIM DO SCRIPT
+   ========================================================= */
