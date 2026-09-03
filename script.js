@@ -295,6 +295,7 @@ function solve(id) {
     state.solved.add(id);
 
     state.score += 100;
+    playEscapeSound("success");
 
     toast(
       "Puzzle resolvido! +100 pontos"
@@ -1071,6 +1072,8 @@ function bindObjects() {
 
 
 function actions(action) {
+
+  playEscapeSound("click");
 
   const actionsMap = {
 
@@ -2018,6 +2021,8 @@ function failPuzzle(message) {
       state.score - 20
     );
 
+  playEscapeSound("error");
+
 }
 
 
@@ -2131,6 +2136,7 @@ function hint() {
 
 function win() {
 
+  playEscapeSound("win");
   clearInterval(state.timer);
 
   state.started = false;
@@ -2271,3 +2277,233 @@ Object.assign(
 
 
 updateTimer();
+
+
+/* =========================
+   EFEITOS SONOROS
+========================= */
+
+let escapeAudio = null;
+let escapeSoundEnabled = true;
+
+function startEscapeAudio() {
+  if (!escapeSoundEnabled) return;
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return;
+  if (!escapeAudio) escapeAudio = new AudioCtor();
+  if (escapeAudio.state === "suspended") escapeAudio.resume();
+  playEscapeSound("start");
+}
+
+function playEscapeSound(type) {
+  if (!escapeSoundEnabled || !escapeAudio) return;
+  const notes = {
+    click: [360],
+    start: [262, 392],
+    success: [523, 659, 784],
+    error: [150, 110],
+    win: [392, 523, 659, 784]
+  }[type] || [300];
+  notes.forEach((frequency, index) => {
+    window.setTimeout(() => {
+      if (!escapeAudio || !escapeSoundEnabled) return;
+      const oscillator = escapeAudio.createOscillator();
+      const gain = escapeAudio.createGain();
+      const now = escapeAudio.currentTime;
+      oscillator.type = type === "error" ? "sawtooth" : "triangle";
+      oscillator.frequency.setValueAtTime(frequency, now);
+      gain.gain.setValueAtTime(type === "click" ? 0.025 : 0.045, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + (type === "click" ? 0.06 : 0.14));
+      oscillator.connect(gain);
+      gain.connect(escapeAudio.destination);
+      oscillator.start(now);
+      oscillator.stop(now + (type === "click" ? 0.06 : 0.14));
+    }, index * 75);
+  });
+}
+
+$("#startBtn").addEventListener("click", startEscapeAudio);
+
+const soundButton = $("#soundBtn");
+if (soundButton) {
+  soundButton.addEventListener("click", () => {
+    escapeSoundEnabled = !escapeSoundEnabled;
+    soundButton.textContent = escapeSoundEnabled ? "🔊 SOM" : "🔇 MUDO";
+    soundButton.setAttribute("aria-pressed", String(escapeSoundEnabled));
+    if (escapeSoundEnabled) startEscapeAudio();
+  });
+}
+
+
+/* =========================================================
+   EXPLORAÇÃO 2D DO ESCAPE ROOM
+   Não é um jogo de Pac-Man: não há pellets, fantasmas ou
+   perseguição. O aluno apenas explora cada sala e investiga
+   os objetos do escape room original.
+========================================================= */
+
+const escape2DObjects = {
+  classroom: [
+    ["blackboard", "🧑‍🏫", "Quadro", 25, 25, "Uma sequência está escrita."],
+    ["clock", "🕐", "Relógio", 76, 23, "Ele parou em um horário estranho."],
+    ["desk", "🪑", "Carteira", 44, 58, "Uma gaveta está fechada."],
+    ["cabinet", "🗄️", "Armário", 76, 64, "Talvez a chave esteja por perto."]
+  ],
+  lab: [
+    ["computer", "💻", "Computador", 68, 30, "Ele pede uma senha de 4 dígitos."],
+    ["keyboard", "⌨️", "Teclado", 67, 57, "Há marcas nas teclas."],
+    ["shelf", "📦", "Prateleira", 20, 65, "Há vários equipamentos."]
+  ],
+  library: [
+    ["books", "📚", "Estantes", 20, 34, "Existem muitos livros."],
+    ["catalog", "🗃️", "Catálogo", 49, 25, "Um catálogo antigo está sobre a mesa."],
+    ["reading", "🔎", "Mesa de leitura", 71, 65, "Talvez alguém tenha deixado uma pista."]
+  ],
+  science: [
+    ["flasks", "🧪", "Frascos", 24, 35, "Há uma sequência de números."],
+    ["board", "🧮", "Quadro", 70, 25, "Fórmulas estão escritas aqui."],
+    ["box", "🧰", "Caixa", 66, 65, "Uma caixa está trancada."]
+  ],
+  corridor: [
+    ["locker", "🗄️", "Armário", 25, 48, "Um cadeado impede a abertura."],
+    ["notice", "📌", "Mural", 51, 25, "Há vários avisos antigos."],
+    ["camera", "📹", "Câmera", 78, 48, "Uma câmera observa o corredor."]
+  ],
+  exit: [
+    ["final", "🔐", "Portão", 51, 43, "O portão exige a senha final."]
+  ]
+};
+
+const escape2DPositions = {
+  classroom: { x: 50, y: 82 },
+  lab: { x: 50, y: 82 },
+  library: { x: 50, y: 82 },
+  science: { x: 50, y: 82 },
+  corridor: { x: 50, y: 82 },
+  exit: { x: 50, y: 78 }
+};
+
+const escape2DKeys = Object.create(null);
+let escape2DLastFrame = 0;
+
+function escape2DPropHTML(id) {
+  const props = {
+    classroom: '<div class="room-prop window left"></div><div class="room-prop window right"></div><div class="room-prop rug"></div>',
+    lab: '<div class="room-prop window left"></div><div class="room-prop lab-table"></div>',
+    library: '<div class="room-prop shelves"></div><div class="room-prop shelves right"></div><div class="room-prop rug"></div>',
+    science: '<div class="room-prop board"></div><div class="room-prop lab-table"></div>',
+    corridor: '<div class="room-prop locker-row"></div>',
+    exit: '<div class="room-prop window left"></div><div class="room-prop window right"></div>'
+  };
+  return props[id] || "";
+}
+
+function escape2DRoomHTML(id) {
+  const roomData = rooms[id];
+  const position = escape2DPositions[id] || { x: 50, y: 80 };
+  const objects = escape2DObjects[id] || [];
+  const solvedActions = new Set([
+    state.solved.has("classroomDoor") ? "blackboard" : "",
+    state.solved.has("labComputer") ? "computer" : "",
+    state.solved.has("libraryBooks") ? "books" : "",
+    state.solved.has("sciencePuzzle") ? "flasks" : "",
+    state.solved.has("corridorDoor") ? "locker" : "",
+    state.solved.has("finalDoor") ? "final" : ""
+  ]);
+
+  return `
+    <div class="topdown-wrap">
+      <div class="topdown-header">
+        <div>
+          <h2>${roomData.icon} ${roomData.name}</h2>
+          <p>${sceneDescription(id)}</p>
+        </div>
+        <div class="topdown-help">Clique nos objetos para investigar<br>WASD / SETAS para caminhar</div>
+      </div>
+      <div class="topdown-map" id="topdownMap">
+        <div class="topdown-wall wall-top"></div>
+        <div class="topdown-wall wall-bottom"></div>
+        <div class="topdown-wall wall-left"></div>
+        <div class="topdown-wall wall-right"></div>
+        <div class="topdown-floor-lines"></div>
+        ${escape2DPropHTML(id)}
+        ${objects.map(([action, icon, name, x, y, description]) => `
+          <button class="topdown-object ${solvedActions.has(action) ? "is-solved" : ""}" data-action="${action}" style="left:${x}%;top:${y}%;" title="${description}">
+            <span>${icon}</span><small>${name}</small>
+          </button>
+        `).join("")}
+        <div id="topdownPlayer" class="topdown-player" style="left:${position.x}%;top:${position.y}%;">
+          <span>🧑‍🎓</span><small>VOCÊ</small>
+        </div>
+        <div class="topdown-label label-start">INÍCIO</div>
+        <div class="topdown-label label-exit">SAÍDA</div>
+      </div>
+      <div class="topdown-controls" aria-label="Controles de movimento">
+        <button data-move="up" aria-label="Andar para cima">▲</button>
+        <div><button data-move="left" aria-label="Andar para esquerda">◀</button><button data-move="down" aria-label="Andar para baixo">▼</button><button data-move="right" aria-label="Andar para direita">▶</button></div>
+      </div>
+      <div class="topdown-status"><strong>Objetivo:</strong> explore a sala e clique nos objetos para descobrir as pistas.</div>
+    </div>
+  `;
+}
+
+roomHTML = escape2DRoomHTML;
+
+function bindEscape2DControls() {
+  document.querySelectorAll("[data-move]").forEach((button) => {
+    const direction = button.dataset.move;
+    const key = direction === "up" ? "up" : direction === "down" ? "down" : direction === "left" ? "left" : "right";
+    const start = (event) => { event.preventDefault(); escape2DKeys[key] = true; };
+    const stop = (event) => { event.preventDefault(); escape2DKeys[key] = false; };
+    button.addEventListener("pointerdown", start);
+    button.addEventListener("pointerup", stop);
+    button.addEventListener("pointercancel", stop);
+    button.addEventListener("pointerleave", stop);
+  });
+}
+
+const escape2DOriginalBindObjects = bindObjects;
+bindObjects = function() {
+  escape2DOriginalBindObjects();
+  bindEscape2DControls();
+};
+
+document.addEventListener("keydown", (event) => {
+  const key = event.key.toLowerCase();
+  const movement = { arrowup: "up", w: "up", arrowdown: "down", s: "down", arrowleft: "left", a: "left", arrowright: "right", d: "right" }[key];
+  if (movement) {
+    event.preventDefault();
+    escape2DKeys[movement] = true;
+  }
+});
+
+document.addEventListener("keyup", (event) => {
+  const key = event.key.toLowerCase();
+  const movement = { arrowup: "up", w: "up", arrowdown: "down", s: "down", arrowleft: "left", a: "left", arrowright: "right", d: "right" }[key];
+  if (movement) escape2DKeys[movement] = false;
+});
+
+function updateEscape2DPlayer(timestamp) {
+  const player = escape2DPositions[state.room];
+  const element = $("#topdownPlayer");
+  if (player && element && state.started) {
+    let dx = 0;
+    let dy = 0;
+    if (escape2DKeys.left) dx -= 1;
+    if (escape2DKeys.right) dx += 1;
+    if (escape2DKeys.up) dy -= 1;
+    if (escape2DKeys.down) dy += 1;
+    if (dx || dy) {
+      const length = Math.hypot(dx, dy) || 1;
+      const speed = 0.055 * Math.min(2, (timestamp - escape2DLastFrame) / 16.67 || 1);
+      player.x = Math.max(8, Math.min(92, player.x + (dx / length) * speed));
+      player.y = Math.max(12, Math.min(88, player.y + (dy / length) * speed));
+      element.style.left = `${player.x}%`;
+      element.style.top = `${player.y}%`;
+    }
+  }
+  escape2DLastFrame = timestamp;
+  window.requestAnimationFrame(updateEscape2DPlayer);
+}
+
+window.requestAnimationFrame(updateEscape2DPlayer);
