@@ -1,0 +1,2273 @@
+const $ = s => document.querySelector(s);
+
+
+/* =========================
+   SALAS
+========================= */
+
+const rooms = {
+
+  classroom: {
+    name: "Sala de Aula",
+    icon: "📚"
+  },
+
+  lab: {
+    name: "Laboratório de Informática",
+    icon: "💻"
+  },
+
+  library: {
+    name: "Biblioteca",
+    icon: "📖"
+  },
+
+  science: {
+    name: "Laboratório de Ciências",
+    icon: "🧪"
+  },
+
+  corridor: {
+    name: "Corredor Principal",
+    icon: "🚪"
+  },
+
+  exit: {
+    name: "Portão Principal",
+    icon: "🔐"
+  }
+
+};
+
+
+/* =========================
+   ITENS
+========================= */
+
+const itemData = {
+
+  key: {
+    icon: "🔑",
+    name: "Chave"
+  },
+
+  card: {
+    icon: "🪪",
+    name: "Cartão"
+  },
+
+  note: {
+    icon: "📝",
+    name: "Bilhete"
+  },
+
+  book: {
+    icon: "📕",
+    name: "Livro"
+  },
+
+  battery: {
+    icon: "🔋",
+    name: "Bateria"
+  },
+
+  lens: {
+    icon: "🔍",
+    name: "Lupa"
+  }
+
+};
+
+
+/* =========================
+   ESTADO DO JOGO
+========================= */
+
+let state = {
+
+  room: "classroom",
+
+  inventory: [],
+
+  solved: new Set(),
+
+  flags: {},
+
+  hints: 3,
+
+  time: 900,
+
+  timer: null,
+
+  score: 1000,
+
+  started: false
+
+};
+
+
+/* =========================
+   RESET
+========================= */
+
+function resetState() {
+
+  state = {
+
+    room: "classroom",
+
+    inventory: [],
+
+    solved: new Set(),
+
+    flags: {},
+
+    hints: 3,
+
+    time: 900,
+
+    timer: null,
+
+    score: 1000,
+
+    started: true
+
+  };
+
+  showScreen("gameScreen");
+
+  render();
+
+  startTimer();
+
+}
+
+
+/* =========================
+   TELAS
+========================= */
+
+function showScreen(id) {
+
+  document
+    .querySelectorAll(".screen")
+    .forEach(x => x.classList.remove("active"));
+
+  $("#" + id).classList.add("active");
+
+}
+
+
+/* =========================
+   CRONÔMETRO
+========================= */
+
+function startTimer() {
+
+  clearInterval(state.timer);
+
+  state.timer = setInterval(() => {
+
+    if (!state.started) return;
+
+    state.time--;
+
+    updateTimer();
+
+    if (state.time <= 0) {
+
+      clearInterval(state.timer);
+
+      state.started = false;
+
+      showScreen("loseScreen");
+
+    }
+
+  }, 1000);
+
+}
+
+
+function updateTimer() {
+
+  const minutes =
+    Math.floor(state.time / 60)
+    .toString()
+    .padStart(2, "0");
+
+  const seconds =
+    (state.time % 60)
+    .toString()
+    .padStart(2, "0");
+
+  $("#timer").textContent =
+    `${minutes}:${seconds}`;
+
+  if (state.time <= 120) {
+
+    $("#timer").style.color =
+      "var(--danger)";
+
+  } else {
+
+    $("#timer").style.color = "";
+
+  }
+
+}
+
+
+/* =========================
+   INVENTÁRIO
+========================= */
+
+function addItem(id) {
+
+  if (!state.inventory.includes(id)) {
+
+    state.inventory.push(id);
+
+    toast(
+      `Item obtido: ${itemData[id].name}`
+    );
+
+    renderInventory();
+
+  }
+
+}
+
+
+function hasItem(id) {
+
+  return state.inventory.includes(id);
+
+}
+
+
+function renderInventory() {
+
+  $("#inventory").innerHTML =
+    Object.keys(itemData).map(id => {
+
+      const has =
+        state.inventory.includes(id);
+
+      return `
+
+        <div
+          class="item"
+          title="${
+            has
+              ? itemData[id].name
+              : "Espaço vazio"
+          }"
+        >
+
+          ${has ? itemData[id].icon : ""}
+
+          ${
+            has
+              ? `<small>
+                   ${itemData[id].name}
+                 </small>`
+              : ""
+          }
+
+        </div>
+
+      `;
+
+    }).join("");
+
+}
+
+
+/* =========================
+   PUZZLES RESOLVIDOS
+========================= */
+
+function solve(id) {
+
+  if (!state.solved.has(id)) {
+
+    state.solved.add(id);
+
+    state.score += 100;
+
+    toast(
+      "Puzzle resolvido! +100 pontos"
+    );
+
+  }
+
+}
+
+
+function progress() {
+
+  const total = 9;
+
+  return Math.min(
+    100,
+    Math.round(
+      state.solved.size / total * 100
+    )
+  );
+
+}
+
+
+/* =========================
+   MAPA
+========================= */
+
+function renderMap() {
+
+  const order = [
+
+    "classroom",
+    "lab",
+    "library",
+    "science",
+    "corridor",
+    "exit"
+
+  ];
+
+
+  $("#mapButtons").innerHTML =
+    order.map(id => {
+
+      const locked =
+
+        (id === "lab" &&
+         !state.solved.has("classroomDoor"))
+
+        ||
+
+        (id === "library" &&
+         !state.solved.has("labComputer"))
+
+        ||
+
+        (id === "science" &&
+         !state.solved.has("libraryBooks"))
+
+        ||
+
+        (id === "corridor" &&
+         !state.solved.has("sciencePuzzle"))
+
+        ||
+
+        (id === "exit" &&
+         !state.solved.has("corridorDoor"));
+
+
+      return `
+
+        <button
+
+          class="
+            map-btn
+            ${state.room === id ? "active" : ""}
+            ${locked ? "locked" : ""}
+          "
+
+          data-room="${id}"
+
+          ${locked ? "disabled" : ""}
+
+        >
+
+          ${rooms[id].icon}
+
+          ${rooms[id].name}
+
+        </button>
+
+      `;
+
+    }).join("");
+
+
+  document
+    .querySelectorAll("[data-room]")
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        goRoom(button.dataset.room);
+
+      };
+
+    });
+
+}
+
+
+/* =========================
+   MUDAR DE SALA
+========================= */
+
+function goRoom(id) {
+
+  if (
+    id === "lab" &&
+    !state.solved.has("classroomDoor")
+  ) {
+
+    return toast(
+      "A porta do laboratório ainda está trancada."
+    );
+
+  }
+
+
+  if (
+    id === "library" &&
+    !state.solved.has("labComputer")
+  ) {
+
+    return toast(
+      "Você ainda precisa descobrir a senha do computador."
+    );
+
+  }
+
+
+  if (
+    id === "science" &&
+    !state.solved.has("libraryBooks")
+  ) {
+
+    return toast(
+      "A biblioteca ainda esconde uma pista."
+    );
+
+  }
+
+
+  if (
+    id === "corridor" &&
+    !state.solved.has("sciencePuzzle")
+  ) {
+
+    return toast(
+      "Você ainda não resolveu o desafio do laboratório."
+    );
+
+  }
+
+
+  if (
+    id === "exit" &&
+    !state.solved.has("corridorDoor")
+  ) {
+
+    return toast(
+      "O portão ainda não pode ser acessado."
+    );
+
+  }
+
+
+  state.room = id;
+
+  render();
+
+}
+
+
+/* =========================
+   RENDER
+========================= */
+
+function render() {
+
+  $("#locationName").textContent =
+    rooms[state.room].name;
+
+  renderMap();
+
+  renderInventory();
+
+  updateTimer();
+
+  $("#progressText").textContent =
+    `Progresso: ${progress()}%`;
+
+
+  const objectives = {
+
+    classroom:
+      "Encontre uma forma de abrir a porta da sala.",
+
+    lab:
+      "Descubra a senha do computador.",
+
+    library:
+      "Encontre o livro certo e descubra a pista.",
+
+    science:
+      "Resolva o enigma dos frascos.",
+
+    corridor:
+      "Abra o armário de manutenção.",
+
+    exit:
+      "Digite a senha final no portão."
+
+  };
+
+
+  $("#objectiveText").textContent =
+    objectives[state.room];
+
+
+  $("#room").innerHTML =
+    roomHTML(state.room);
+
+
+  bindObjects();
+
+}
+
+
+/* =========================
+   DESCRIÇÕES
+========================= */
+
+function sceneDescription(id) {
+
+  return {
+
+    classroom:
+      "As carteiras estão vazias. O relógio parou. Há algo escrito no quadro.",
+
+    lab:
+      "Monitores desligados, cabos espalhados e um computador que ainda funciona.",
+
+    library:
+      "Silêncio absoluto. Estantes enormes escondem dezenas de pistas.",
+
+    science:
+      "Há frascos coloridos, um quadro de fórmulas e uma caixa trancada.",
+
+    corridor:
+      "As luzes piscam. Um armário metálico está preso por um cadeado.",
+
+    exit:
+      "O portão eletrônico exige uma senha de quatro dígitos."
+
+  }[id];
+
+}
+
+
+/* =========================
+   HTML DAS SALAS
+========================= */
+
+function roomHTML(id) {
+
+  const header = `
+
+    <div class="scene-header">
+
+      <h2>
+        ${rooms[id].icon}
+        ${rooms[id].name}
+      </h2>
+
+      <p>
+        ${sceneDescription(id)}
+      </p>
+
+    </div>
+
+  `;
+
+
+  let body = "";
+
+
+  if (id === "classroom")
+    body = classroomHTML();
+
+
+  if (id === "lab")
+    body = labHTML();
+
+
+  if (id === "library")
+    body = libraryHTML();
+
+
+  if (id === "science")
+    body = scienceHTML();
+
+
+  if (id === "corridor")
+    body = corridorHTML();
+
+
+  if (id === "exit")
+    body = exitHTML();
+
+
+  return `
+
+    <div class="scene">
+
+      ${header}
+
+      <div class="scene-body">
+
+        ${body}
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================
+   SALA DE AULA
+========================= */
+
+function classroomHTML() {
+
+  return `
+
+    <button class="object-btn"
+      data-action="blackboard">
+
+      <span class="emoji">🧑‍🏫</span>
+
+      <strong>Quadro</strong>
+
+      <span>
+        Há uma sequência escrita.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="clock">
+
+      <span class="emoji">🕐</span>
+
+      <strong>Relógio</strong>
+
+      <span>
+        Ele parou em um horário estranho.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="desk">
+
+      <span class="emoji">🪑</span>
+
+      <strong>Carteira</strong>
+
+      <span>
+        Uma gaveta está fechada.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="cabinet">
+
+      <span class="emoji">🗄️</span>
+
+      <strong>Armário</strong>
+
+      <span>
+        Talvez a chave esteja por perto.
+      </span>
+
+    </button>
+
+
+    ${
+      state.solved.has("classroomDoor")
+
+        ?
+
+      `<div class="locked-card success">
+        ✓ A porta foi aberta.
+        Você pode seguir para o laboratório.
+      </div>`
+
+        :
+
+      `<div class="locked-card">
+        A porta está trancada.
+        Descubra o código da fechadura.
+      </div>`
+    }
+
+  `;
+
+}
+
+
+/* =========================
+   LABORATÓRIO
+========================= */
+
+function labHTML() {
+
+  return `
+
+    <button class="object-btn"
+      data-action="computer">
+
+      <span class="emoji">💻</span>
+
+      <strong>Computador</strong>
+
+      <span>
+        Ele pede uma senha de 4 dígitos.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="keyboard">
+
+      <span class="emoji">⌨️</span>
+
+      <strong>Teclado</strong>
+
+      <span>
+        Há marcas nas teclas.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="shelf">
+
+      <span class="emoji">📦</span>
+
+      <strong>Prateleira</strong>
+
+      <span>
+        Uma caixa contém algo útil.
+      </span>
+
+    </button>
+
+
+    ${
+      state.solved.has("labComputer")
+
+      ?
+
+      `<div class="locked-card success">
+        ✓ Computador desbloqueado.
+        A mensagem aponta para a biblioteca.
+      </div>`
+
+      :
+
+      `<div class="locked-card">
+        O computador está bloqueado.
+      </div>`
+    }
+
+  `;
+
+}
+
+
+/* =========================
+   BIBLIOTECA
+========================= */
+
+function libraryHTML() {
+
+  return `
+
+    <button class="object-btn"
+      data-action="books">
+
+      <span class="emoji">📚</span>
+
+      <strong>Estante</strong>
+
+      <span>
+        Três livros parecem diferentes.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="catalog">
+
+      <span class="emoji">🗃️</span>
+
+      <strong>Catálogo</strong>
+
+      <span>
+        Uma ficha tem números circulados.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="reading">
+
+      <span class="emoji">🔎</span>
+
+      <strong>Mesa de leitura</strong>
+
+      <span>
+        Há uma lupa e um bilhete.
+      </span>
+
+    </button>
+
+
+    ${
+      state.solved.has("libraryBooks")
+
+      ?
+
+      `<div class="locked-card success">
+        ✓ Pista encontrada.
+        O caminho continua no laboratório.
+      </div>`
+
+      :
+
+      `<div class="locked-card">
+        Descubra a ordem correta dos livros.
+      </div>`
+    }
+
+  `;
+
+}
+
+
+/* =========================
+   CIÊNCIAS
+========================= */
+
+function scienceHTML() {
+
+  return `
+
+    <button class="object-btn"
+      data-action="flasks">
+
+      <span class="emoji">🧪</span>
+
+      <strong>Frascos</strong>
+
+      <span>
+        Quatro frascos e uma sequência.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="board">
+
+      <span class="emoji">🧮</span>
+
+      <strong>Quadro</strong>
+
+      <span>
+        Uma equação incompleta.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="box">
+
+      <span class="emoji">🧰</span>
+
+      <strong>Caixa</strong>
+
+      <span>
+        Possui um cadeado.
+      </span>
+
+    </button>
+
+
+    ${
+      state.solved.has("sciencePuzzle")
+
+      ?
+
+      `<div class="locked-card success">
+        ✓ A caixa revelou um cartão de acesso.
+      </div>`
+
+      :
+
+      `<div class="locked-card">
+        Resolva o enigma para encontrar o cartão.
+      </div>`
+    }
+
+  `;
+
+}
+
+
+/* =========================
+   CORREDOR
+========================= */
+
+function corridorHTML() {
+
+  return `
+
+    <button class="object-btn"
+      data-action="locker">
+
+      <span class="emoji">🗄️</span>
+
+      <strong>
+        Armário de manutenção
+      </strong>
+
+      <span>
+        Um cadeado com 3 números.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="notice">
+
+      <span class="emoji">📌</span>
+
+      <strong>Mural de avisos</strong>
+
+      <span>
+        Há uma mensagem antiga.
+      </span>
+
+    </button>
+
+
+    <button class="object-btn"
+      data-action="camera">
+
+      <span class="emoji">📹</span>
+
+      <strong>Câmera</strong>
+
+      <span>
+        Ela aponta para o portão.
+      </span>
+
+    </button>
+
+
+    ${
+      state.solved.has("corridorDoor")
+
+      ?
+
+      `<div class="locked-card success">
+        ✓ O armário foi aberto.
+        A última pista foi encontrada.
+      </div>`
+
+      :
+
+      `<div class="locked-card">
+        Encontre o código do armário.
+      </div>`
+    }
+
+  `;
+
+}
+
+
+/* =========================
+   PORTÃO
+========================= */
+
+function exitHTML() {
+
+  return `
+
+    <div class="locked-card"
+      style="grid-column:1/-1">
+
+      <h3>
+        🔐 PORTÃO PRINCIPAL
+      </h3>
+
+      <p>
+        Depois de tudo que você encontrou,
+        falta apenas colocar a senha final.
+      </p>
+
+      <button
+        class="primary-btn"
+        data-action="final"
+        style="max-width:360px">
+
+        DIGITAR SENHA FINAL
+
+      </button>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================
+   OBJETOS
+========================= */
+
+function bindObjects() {
+
+  document
+    .querySelectorAll("[data-action]")
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        actions(button.dataset.action);
+
+      };
+
+    });
+
+}
+
+
+function actions(action) {
+
+  const actionsMap = {
+
+    blackboard: openBlackboard,
+
+    clock: openClock,
+
+    desk: openDesk,
+
+    cabinet: openCabinet,
+
+    computer: openComputer,
+
+    keyboard: openKeyboard,
+
+    shelf: openShelf,
+
+    books: openBooks,
+
+    catalog: openCatalog,
+
+    reading: openReading,
+
+    flasks: openFlasks,
+
+    board: openBoard,
+
+    box: openBox,
+
+    locker: openLocker,
+
+    notice: openNotice,
+
+    camera: openCamera,
+
+    final: openFinal
+
+  };
+
+
+  if (actionsMap[action]) {
+
+    actionsMap[action]();
+
+  }
+
+}
+
+
+/* =========================
+   QUADRO
+========================= */
+
+function openBlackboard() {
+
+  modal(`
+
+    <h3>
+      🧑‍🏫 O quadro
+    </h3>
+
+    <p>
+      Você encontra uma frase:
+    </p>
+
+    <div class="clue">
+
+      “A senha da sala está escondida
+      no horário em que o último aluno saiu.”
+
+    </div>
+
+    <p>
+      O relógio parou em
+      <strong>16:20</strong>.
+    </p>
+
+  `);
+
+}
+
+
+/* =========================
+   RELÓGIO
+========================= */
+
+function openClock() {
+
+  modal(`
+
+    <h3>🕐 Relógio</h3>
+
+    <p>
+      O relógio está parado exatamente em
+      <strong>16:20</strong>.
+    </p>
+
+    <div class="clue">
+
+      Use apenas os números do horário.
+
+    </div>
+
+    <div class="code-display">
+      1620
+    </div>
+
+    <button
+      class="primary-btn"
+      onclick="checkClassCode()">
+
+      TESTAR 1620
+
+    </button>
+
+    <p id="puzzleMsg"></p>
+
+  `);
+
+}
+
+
+function checkClassCode() {
+
+  solve("classroomDoor");
+
+  closeModal();
+
+  render();
+
+}
+
+
+/* =========================
+   CARTEIRA
+========================= */
+
+function openDesk() {
+
+  modal(`
+
+    <h3>🪑 Carteira</h3>
+
+    <p>
+      A gaveta está presa.
+    </p>
+
+    <div class="clue">
+
+      “A primeira letra do alfabeto
+      abre a gaveta.”
+
+    </div>
+
+    <p>
+      Qual é a letra?
+    </p>
+
+    <div class="choice-grid">
+
+      <button
+        class="choice"
+        onclick="deskChoice('A')">
+        A
+      </button>
+
+      <button
+        class="choice"
+        onclick="deskChoice('B')">
+        B
+      </button>
+
+      <button
+        class="choice"
+        onclick="deskChoice('C')">
+        C
+      </button>
+
+      <button
+        class="choice"
+        onclick="deskChoice('D')">
+        D
+      </button>
+
+    </div>
+
+    <p id="puzzleMsg"></p>
+
+  `);
+
+}
+
+
+function deskChoice(letter) {
+
+  if (letter === "A") {
+
+    addItem("key");
+
+    closeModal();
+
+    toast("Você encontrou uma chave.");
+
+  } else {
+
+    failPuzzle(
+      "Não é essa letra."
+    );
+
+  }
+
+}
+
+
+/* =========================
+   ARMÁRIO
+========================= */
+
+function openCabinet() {
+
+  if (hasItem("key")) {
+
+    modal(`
+
+      <h3>🗄️ Armário</h3>
+
+      <p>
+        Você usa a chave encontrada
+        na carteira.
+      </p>
+
+      <div class="clue">
+
+        “O laboratório fica depois da
+        sala de aula. A senha do computador
+        está relacionada às teclas marcadas.”
+
+      </div>
+
+    `);
+
+  } else {
+
+    modal(`
+
+      <h3>🗄️ Armário</h3>
+
+      <p>
+        Está trancado.
+        Procure uma chave pela sala.
+      </p>
+
+    `);
+
+  }
+
+}
+
+
+/* =========================
+   COMPUTADOR
+========================= */
+
+function openComputer() {
+
+  if (state.solved.has("labComputer")) {
+
+    modal(`
+
+      <h3>💻 Computador</h3>
+
+      <p class="success">
+        Acesso liberado.
+      </p>
+
+      <div class="clue">
+
+        “Procure na biblioteca
+        os livros 3, 7 e 12.”
+
+      </div>
+
+    `);
+
+    return;
+
+  }
+
+
+  modal(`
+
+    <h3>💻 Computador</h3>
+
+    <p>
+      Digite a senha encontrada
+      pelas pistas do teclado.
+    </p>
+
+    <div class="puzzle">
+
+      <input
+        id="answer"
+        inputmode="numeric"
+        maxlength="4"
+        placeholder="4 dígitos"
+      >
+
+      <button
+        class="primary-btn"
+        onclick="computerCheck()">
+
+        ACESSAR
+
+      </button>
+
+      <p id="puzzleMsg"></p>
+
+    </div>
+
+  `);
+
+}
+
+
+function computerCheck() {
+
+  const value =
+    $("#answer").value.trim();
+
+
+  if (value === "2468") {
+
+    solve("labComputer");
+
+    closeModal();
+
+    render();
+
+  } else {
+
+    failPuzzle(
+      "Senha incorreta. Observe as teclas marcadas."
+    );
+
+  }
+
+}
+
+
+/* =========================
+   TECLADO
+========================= */
+
+function openKeyboard() {
+
+  modal(`
+
+    <h3>⌨️ Teclado</h3>
+
+    <p>
+      Quatro teclas possuem pequenas marcas:
+    </p>
+
+    <div class="sequence">
+      2 → 4 → 6 → 8
+    </div>
+
+    <div class="clue">
+
+      Esses números formam a senha
+      do computador.
+
+    </div>
+
+  `);
+
+}
+
+
+/* =========================
+   PRATELEIRA
+========================= */
+
+function openShelf() {
+
+  if (!hasItem("battery")) {
+
+    addItem("battery");
+
+    modal(`
+
+      <h3>📦 Prateleira</h3>
+
+      <p>
+        Você encontrou uma bateria reserva.
+        Pode ser útil mais tarde.
+      </p>
+
+    `);
+
+  } else {
+
+    modal(`
+
+      <h3>📦 Prateleira</h3>
+
+      <p>
+        Está vazia.
+      </p>
+
+    `);
+
+  }
+
+}
+
+
+/* =========================
+   LIVROS
+========================= */
+
+function openBooks() {
+
+  if (!state.solved.has("labComputer")) {
+
+    modal(`
+
+      <h3>📚 Estante</h3>
+
+      <p>
+        Você ainda não sabe
+        quais livros procurar.
+      </p>
+
+    `);
+
+    return;
+
+  }
+
+
+  modal(`
+
+    <h3>📚 Os livros</h3>
+
+    <p>
+      Você encontra os livros
+      <strong>3, 7 e 12</strong>.
+    </p>
+
+    <div class="sequence">
+      C — O — R
+    </div>
+
+    <p>
+      Uma etiqueta completa a mensagem:
+      <strong>CORREDOR</strong>.
+    </p>
+
+    <button
+      class="primary-btn"
+      onclick="librarySolved()">
+
+      REGISTRAR PISTA
+
+    </button>
+
+  `);
+
+}
+
+
+function librarySolved() {
+
+  solve("libraryBooks");
+
+  addItem("book");
+
+  closeModal();
+
+  render();
+
+}
+
+
+/* =========================
+   CATÁLOGO
+========================= */
+
+function openCatalog() {
+
+  modal(`
+
+    <h3>🗃️ Catálogo</h3>
+
+    <p>
+      Uma ficha diz:
+    </p>
+
+    <div class="clue">
+
+      “Livros 3, 7 e 12.
+      A ordem importa.”
+
+    </div>
+
+  `);
+
+}
+
+
+/* =========================
+   MESA
+========================= */
+
+function openReading() {
+
+  if (!hasItem("lens")) {
+
+    addItem("lens");
+
+    modal(`
+
+      <h3>🔎 Mesa</h3>
+
+      <p>
+        Você encontrou uma lupa.
+      </p>
+
+      <div class="clue">
+        3 • 7 • 12
+      </div>
+
+    `);
+
+  } else {
+
+    modal(`
+
+      <h3>🔎 Mesa</h3>
+
+      <p>
+        Você não encontra mais nada.
+      </p>
+
+    `);
+
+  }
+
+}
+
+
+/* =========================
+   FRASCOS
+========================= */
+
+function openFlasks() {
+
+  modal(`
+
+    <h3>🧪 Enigma dos frascos</h3>
+
+    <p>
+      Os frascos estão numerados.
+    </p>
+
+    <div class="sequence">
+      1 — 2 — 4 — 8 — ?
+    </div>
+
+    <p>
+      Qual número vem depois?
+    </p>
+
+    <div class="choice-grid">
+
+      <button
+        class="choice"
+        onclick="flaskChoice(12)">
+        12
+      </button>
+
+      <button
+        class="choice"
+        onclick="flaskChoice(16)">
+        16
+      </button>
+
+      <button
+        class="choice"
+        onclick="flaskChoice(14)">
+        14
+      </button>
+
+      <button
+        class="choice"
+        onclick="flaskChoice(18)">
+        18
+      </button>
+
+    </div>
+
+    <p id="puzzleMsg"></p>
+
+  `);
+
+}
+
+
+function flaskChoice(value) {
+
+  if (value === 16) {
+
+    solve("sciencePuzzle");
+
+    addItem("card");
+
+    closeModal();
+
+    render();
+
+  } else {
+
+    failPuzzle(
+      "Observe a sequência: cada número dobra."
+    );
+
+  }
+
+}
+
+
+/* =========================
+   QUADRO DE CIÊNCIAS
+========================= */
+
+function openBoard() {
+
+  modal(`
+
+    <h3>🧮 Quadro</h3>
+
+    <p>
+      Uma fórmula está escrita:
+    </p>
+
+    <div class="sequence">
+      2 × 2 × 2 × 2 = ?
+    </div>
+
+    <div class="clue">
+
+      A resposta também é uma pista.
+
+    </div>
+
+  `);
+
+}
+
+
+/* =========================
+   CAIXA
+========================= */
+
+function openBox() {
+
+  if (state.solved.has("sciencePuzzle")) {
+
+    modal(`
+
+      <h3>🧰 Caixa</h3>
+
+      <p class="success">
+        A caixa abriu!
+      </p>
+
+      <p>
+        Dentro está um cartão
+        de acesso ao corredor.
+      </p>
+
+    `);
+
+  } else {
+
+    modal(`
+
+      <h3>🧰 Caixa</h3>
+
+      <p>
+        O cadeado parece seguir
+        o mesmo padrão dos frascos.
+      </p>
+
+    `);
+
+  }
+
+}
+
+
+/* =========================
+   ARMÁRIO DO CORREDOR
+========================= */
+
+function openLocker() {
+
+  modal(`
+
+    <h3>🗄️ Armário</h3>
+
+    <p>
+      O cadeado pede três números.
+    </p>
+
+    <div class="clue">
+
+      “Primeiro o número da sala de aula,
+      depois o laboratório e por fim
+      a biblioteca.”
+
+    </div>
+
+    <p>
+      Sala 1, laboratório 2,
+      biblioteca 3.
+    </p>
+
+    <button
+      class="primary-btn"
+      onclick="lockerSolved()">
+
+      ABRIR COM 123
+
+    </button>
+
+    <p id="puzzleMsg"></p>
+
+  `);
+
+}
+
+
+function lockerSolved() {
+
+  solve("corridorDoor");
+
+  addItem("note");
+
+  closeModal();
+
+  render();
+
+}
+
+
+/* =========================
+   MURAL
+========================= */
+
+function openNotice() {
+
+  modal(`
+
+    <h3>📌 Mural</h3>
+
+    <p>
+      Há um aviso antigo:
+    </p>
+
+    <div class="clue">
+
+      “A saída não é o fim.
+      A resposta final está em tudo
+      que você aprendeu.”
+
+    </div>
+
+  `);
+
+}
+
+
+/* =========================
+   CÂMERA
+========================= */
+
+function openCamera() {
+
+  modal(`
+
+    <h3>📹 Câmera</h3>
+
+    <p>
+      A câmera mostra o portão.
+    </p>
+
+    <div class="clue">
+
+      “Use os quatro números principais
+      encontrados durante a investigação.”
+
+    </div>
+
+    <p>
+      As pistas principais são:
+      <strong>1620, 2468, 16 e 123</strong>.
+    </p>
+
+  `);
+
+}
+
+
+/* =========================
+   PORTÃO FINAL
+========================= */
+
+function openFinal() {
+
+  if (!state.solved.has("corridorDoor")) {
+
+    return modal(`
+
+      <h3>🔐 Portão</h3>
+
+      <p>
+        O sistema ainda não liberou
+        o teclado.
+      </p>
+
+    `);
+
+  }
+
+
+  modal(`
+
+    <h3>🔐 Senha final</h3>
+
+    <p>
+      Você precisa descobrir
+      a combinação final.
+    </p>
+
+    <div class="clue">
+
+      A última pista pede os dois últimos
+      números do relógio e o resultado
+      do enigma dos frascos.
+
+    </div>
+
+    <div class="code-display">
+      20 + 16
+    </div>
+
+    <div class="puzzle">
+
+      <input
+        id="finalAnswer"
+        inputmode="numeric"
+        maxlength="4"
+        placeholder="4 dígitos"
+      >
+
+      <button
+        class="primary-btn"
+        onclick="finalCheck()">
+
+        ABRIR PORTÃO
+
+      </button>
+
+      <p id="puzzleMsg"></p>
+
+    </div>
+
+  `);
+
+}
+
+
+function finalCheck() {
+
+  const value =
+    $("#finalAnswer").value.trim();
+
+
+  if (value === "2016") {
+
+    win();
+
+  } else {
+
+    failPuzzle(
+      "Ainda não. Releia as pistas finais."
+    );
+
+  }
+
+}
+
+
+/* =========================
+   ERRO DE PUZZLE
+========================= */
+
+function failPuzzle(message) {
+
+  const p =
+    $("#puzzleMsg");
+
+
+  if (p) {
+
+    p.textContent = message;
+
+    p.className = "error";
+
+  }
+
+
+  const card =
+    document.querySelector(".modal-card");
+
+
+  if (card) {
+
+    card.classList.add("shake");
+
+    setTimeout(() => {
+
+      card.classList.remove("shake");
+
+    }, 400);
+
+  }
+
+
+  state.score =
+    Math.max(
+      0,
+      state.score - 20
+    );
+
+}
+
+
+/* =========================
+   MODAL
+========================= */
+
+function modal(html) {
+
+  $("#modalContent").innerHTML =
+    html;
+
+  $("#modal").classList.remove("hidden");
+
+}
+
+
+function closeModal() {
+
+  $("#modal")
+    .classList.add("hidden");
+
+}
+
+
+/* =========================
+   MENSAGEM
+========================= */
+
+function toast(message) {
+
+  const toastElement =
+    $("#toast");
+
+  toastElement.textContent =
+    message;
+
+  toastElement.classList.add("show");
+
+
+  setTimeout(() => {
+
+    toastElement.classList.remove("show");
+
+  }, 2200);
+
+}
+
+
+/* =========================
+   DICAS
+========================= */
+
+function hint() {
+
+  if (state.hints <= 0) {
+
+    return toast(
+      "Você já usou todas as dicas."
+    );
+
+  }
+
+
+  const hints = {
+
+    classroom:
+      "Observe o horário parado no relógio.",
+
+    lab:
+      "As teclas marcadas formam uma sequência de números pares.",
+
+    library:
+      "O computador revelou exatamente quais livros procurar.",
+
+    science:
+      "Na sequência dos frascos, cada número dobra.",
+
+    corridor:
+      "O mural fala sobre números de salas.",
+
+    exit:
+      "Combine os dois números destacados nas pistas finais."
+
+  };
+
+
+  state.hints--;
+
+  state.score =
+    Math.max(
+      0,
+      state.score - 75
+    );
+
+
+  $("#hintCount").textContent =
+    state.hints;
+
+
+  toast(
+    "💡 " + hints[state.room]
+  );
+
+}
+
+
+/* =========================
+   VITÓRIA
+========================= */
+
+function win() {
+
+  clearInterval(state.timer);
+
+  state.started = false;
+
+
+  const used =
+    900 - state.time;
+
+
+  const bonus =
+    Math.max(
+      0,
+      500 - Math.floor(used / 3)
+    );
+
+
+  const finalScore =
+    Math.max(
+      0,
+      state.score + bonus
+    );
+
+
+  $("#finalScore").textContent =
+    finalScore;
+
+
+  $("#winSummary").textContent =
+    `Você resolveu os desafios em
+     ${Math.floor(used / 60)}m
+     ${(used % 60).toString().padStart(2,"0")}s
+     e encontrou a senha 2016.`;
+
+
+  showScreen("winScreen");
+
+}
+
+
+/* =========================
+   BOTÕES
+========================= */
+
+$("#startBtn").onclick =
+  resetState;
+
+
+$("#howBtn").onclick =
+  () => showScreen("howScreen");
+
+
+$("#hintBtn").onclick =
+  hint;
+
+
+$("#restartBtn").onclick =
+  () => {
+
+    if (
+      confirm(
+        "Recomeçar o jogo? Seu progresso atual será perdido."
+      )
+    ) {
+
+      resetState();
+
+    }
+
+  };
+
+
+$("#playAgainBtn").onclick =
+  resetState;
+
+
+$("#tryAgainBtn").onclick =
+  resetState;
+
+
+$("#modalClose").onclick =
+  closeModal;
+
+
+$("#modal").addEventListener(
+  "click",
+  event => {
+
+    if (
+      event.target.id === "modal"
+    ) {
+
+      closeModal();
+
+    }
+
+  }
+);
+
+
+document
+  .querySelectorAll("[data-close]")
+  .forEach(button => {
+
+    button.onclick =
+      () => showScreen(
+        button.dataset.close
+      );
+
+  });
+
+
+/* =========================
+   FUNÇÕES DOS PUZZLES
+========================= */
+
+Object.assign(
+  window,
+  {
+
+    checkClassCode,
+
+    deskChoice,
+
+    computerCheck,
+
+    librarySolved,
+
+    flaskChoice,
+
+    lockerSolved,
+
+    finalCheck,
+
+    closeModal
+
+  }
+);
+
+
+updateTimer();
