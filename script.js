@@ -1,1602 +1,643 @@
-/* =========================================================
-   ESCAPE SCHOOL – DEPOIS DO SINAL!
-   SCRIPT COMPLETO
-   Versão com visual 2D visto de cima
-   ========================================================= */
+
+/*
+ * ESCAPE SCHOOL — Depois do Sinal
+ * Jogo 2D top-down sem bibliotecas externas.
+ * O áudio é criado com Web Audio API para o projeto funcionar no GitHub Pages
+ * sem depender de arquivos de som ou caminhos externos.
+ */
+
+const COLS = 23;
+const ROWS = 15;
+const GAME_TIME = 15 * 60;
+
+const MAP = [
+  "#######################",
+  "#.........#...........#",
+  "#.###.###.#.###.###.#.#",
+  "#.....................#",
+  "#.###.#.#########.#.#.#",
+  "#.....#.....#.....#...#",
+  "#####.#####.#.#####.###",
+  "#.........#.#.........#",
+  "###.#####.#.#####.####",
+  "#...#.....#.....#.....#",
+  "#.#.#.###.#####.###.#.#",
+  "#.#........#........#.#",
+  "#.########.#.########.#",
+  "#...................G#",
+  "#######################"
+];
+
+const ITEMS = [
+  { id: "notebook", label: "Caderno", icon: "📘", x: 2, y: 1 },
+  { id: "key", label: "Chave", icon: "🔑", x: 17, y: 3 },
+  { id: "card", label: "Cartão", icon: "🪪", x: 17, y: 13 }
+];
+
+const POWER_POSITIONS = [
+  { x: 1, y: 3 },
+  { x: 19, y: 11 }
+];
+
+const GHOST_STARTS = [
+  { id: "inspector", x: 11, y: 7, color: "red", direction: { x: 1, y: 0 }, cooldown: 0 },
+  { id: "monitor", x: 13, y: 7, color: "purple", direction: { x: -1, y: 0 }, cooldown: 0 }
+];
 
 const $ = (selector) => document.querySelector(selector);
-
-/* =========================================================
-   ESTADO DO JOGO
-   ========================================================= */
-
-const rooms = {
-    classroom: {
-        name: "Sala de Aula",
-        objective: "Descubra o código escondido na sala."
-    },
-    lab: {
-        name: "Laboratório de Informática",
-        objective: "Encontre a senha do computador."
-    },
-    library: {
-        name: "Biblioteca",
-        objective: "Descubra a palavra escondida nos livros."
-    },
-    science: {
-        name: "Laboratório de Ciências",
-        objective: "Resolva a sequência dos frascos."
-    },
-    corridor: {
-        name: "Corredor",
-        objective: "Abra o armário e descubra o próximo caminho."
-    },
-    exit: {
-        name: "Saída",
-        objective: "Descubra a senha final e escape da escola!"
-    }
-};
+const room = $("#room");
+const messageText = $("#messageText");
+const toast = $("#toast");
 
 const state = {
-    room: "classroom",
-    inventory: [],
-    solved: new Set(),
-    flags: {},
-    hints: 3,
-    time: 900,
-    timer: null,
-    score: 1000,
-    started: false
+  started: false,
+  running: false,
+  paused: false,
+  ended: false,
+  elapsed: 0,
+  score: 0,
+  lives: 3,
+  soundOn: true,
+  powerUntil: 0,
+  lastTime: 0,
+  lastGhostMove: 0,
+  hintIndex: 0,
+  player: { x: 1, y: 13, direction: { x: 1, y: 0 }, moving: false },
+  ghosts: [],
+  pellets: new Set(),
+  pelletsTotal: 0,
+  powers: new Set(),
+  collectedItems: new Set(),
+  interactionTarget: null
 };
 
-/* =========================================================
-   OBJETOS DAS SALAS
-   ========================================================= */
+const keys = new Set();
+let audioContext = null;
+let ambientTimer = null;
+let toastTimer = null;
 
-const topDownObjects = {
+function isInside(x, y) {
+  return x >= 0 && x < COLS && y >= 0 && y < ROWS;
+}
 
-    classroom: [
-        { action: "blackboard", x: 18, y: 20, icon: "📋", label: "Quadro" },
-        { action: "clock", x: 78, y: 18, icon: "🕐", label: "Relógio" },
-        { action: "desk", x: 42, y: 48, icon: "🪑", label: "Mesa" },
-        { action: "cabinet", x: 76, y: 65, icon: "🗄️", label: "Armário" }
-    ],
+function cellAt(x, y) {
+  if (!isInside(x, y)) return "#";
+  return MAP[y][x];
+}
 
-    lab: [
-        { action: "computer", x: 65, y: 35, icon: "💻", label: "Computador" },
-        { action: "keyboard", x: 65, y: 55, icon: "⌨️", label: "Teclado" },
-        { action: "shelf", x: 20, y: 65, icon: "📚", label: "Estante" }
-    ],
+function isWalkable(x, y) {
+  return cellAt(Math.round(x), Math.round(y)) !== "#";
+}
 
-    library: [
-        { action: "books", x: 20, y: 30, icon: "📚", label: "Livros" },
-        { action: "catalog", x: 48, y: 25, icon: "📖", label: "Catálogo" },
-        { action: "reading", x: 70, y: 65, icon: "📕", label: "Mesa de leitura" }
-    ],
+function cellKey(x, y) {
+  return `${x},${y}`;
+}
 
-    science: [
-        { action: "flasks", x: 25, y: 32, icon: "🧪", label: "Frascos" },
-        { action: "board", x: 70, y: 25, icon: "🧮", label: "Quadro" },
-        { action: "box", x: 65, y: 65, icon: "📦", label: "Caixa" }
-    ],
-
-    corridor: [
-        { action: "locker", x: 25, y: 48, icon: "🔐", label: "Armário" },
-        { action: "notice", x: 50, y: 25, icon: "📌", label: "Aviso" },
-        { action: "camera", x: 78, y: 48, icon: "📹", label: "Câmera" }
-    ],
-
-    exit: [
-        { action: "final", x: 50, y: 25, icon: "🚪", label: "Portão" }
-    ]
-};
-
-/* =========================================================
-   PLAYER
-   ========================================================= */
-
-const topDownPlayer = {
-    x: 50,
-    y: 78,
-    speed: 0.45,
-    keys: {}
-};
-
-/* =========================================================
-   UTILIDADES
-   ========================================================= */
-
-function showScreen(screenId) {
-    document.querySelectorAll(".screen").forEach(screen => {
-        screen.classList.remove("active");
-    });
-
-    const screen = document.getElementById(screenId);
-
-    if (screen) {
-        screen.classList.add("active");
-    }
+function formatScore(value) {
+  return String(Math.max(0, value)).padStart(5, "0");
 }
 
 function formatTime(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-
-    return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const remaining = Math.max(0, Math.ceil(GAME_TIME - seconds));
+  const minutes = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-function addInventory(item) {
-    if (!state.inventory.includes(item)) {
-        state.inventory.push(item);
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach((screen) => screen.classList.remove("active"));
+  const target = $(`#${id}`);
+  if (target) target.classList.add("active");
+}
+
+function showToast(text) {
+  toast.textContent = text;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+}
+
+function setMessage(text) {
+  if (messageText) messageText.textContent = text;
+}
+
+function startAudio() {
+  if (!state.soundOn) return;
+  if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext.state === "suspended") audioContext.resume();
+  if (ambientTimer) return;
+  ambientTimer = window.setInterval(() => {
+    if (state.running && !state.paused && !state.ended) playTone(92, 0.06, "sine", 0.018);
+  }, 4200);
+}
+
+function playTone(frequency, duration = 0.08, type = "square", volume = 0.035) {
+  if (!state.soundOn || !audioContext) return;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const now = audioContext.currentTime;
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + duration);
+}
+
+function playCollectSound() {
+  playTone(520, 0.06, "square", 0.04);
+  window.setTimeout(() => playTone(780, 0.09, "square", 0.035), 55);
+}
+
+function playPowerSound() {
+  [330, 440, 660, 880].forEach((note, index) => window.setTimeout(() => playTone(note, 0.08, "triangle", 0.04), index * 65));
+}
+
+function playHitSound() {
+  playTone(130, 0.24, "sawtooth", 0.06);
+}
+
+function playWinSound() {
+  [392, 523, 659, 784].forEach((note, index) => window.setTimeout(() => playTone(note, 0.16, "triangle", 0.05), index * 100));
+}
+
+function prepareBoard() {
+  state.pellets.clear();
+  state.powers.clear();
+  state.collectedItems.clear();
+  state.ghosts = GHOST_STARTS.map((ghost) => ({ ...ghost, direction: { ...ghost.direction } }));
+
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      if (isWalkable(x, y)) state.pellets.add(cellKey(x, y));
     }
+  }
+
+  [state.player, ...state.ghosts, ...ITEMS, ...POWER_POSITIONS].forEach((entity) => {
+    if (entity && Number.isFinite(entity.x) && Number.isFinite(entity.y)) state.pellets.delete(cellKey(entity.x, entity.y));
+  });
+  state.pelletsTotal = state.pellets.size;
+
+  POWER_POSITIONS.forEach((position) => {
+    if (isWalkable(position.x, position.y)) state.powers.add(cellKey(position.x, position.y));
+  });
+
+  state.player = { x: 1, y: 13, direction: { x: 1, y: 0 }, moving: false };
+  state.elapsed = 0;
+  state.score = 0;
+  state.lives = 3;
+  state.powerUntil = 0;
+  state.lastGhostMove = 0;
+  state.ended = false;
+  state.interactionTarget = null;
+  updateHud();
 }
 
-function hasItem(item) {
-    return state.inventory.includes(item);
-}
+function renderBoard() {
+  const maze = document.createElement("div");
+  maze.className = "maze";
+  maze.setAttribute("aria-label", "Labirinto 2D da escola");
 
-function markSolved(name) {
-    state.solved.add(name);
-}
-
-function isSolved(name) {
-    return state.solved.has(name);
-}
-
-function message(text) {
-    const element = $("#messageText");
-
-    if (element) {
-        element.textContent = text;
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      const tile = document.createElement("div");
+      const value = cellAt(x, y);
+      tile.className = `tile ${value === "#" ? "wall" : "floor"}`;
+      if (value === "G") tile.classList.add("gate");
+      if (state.pellets.has(cellKey(x, y))) {
+        const pellet = document.createElement("span");
+        pellet.className = "pellet";
+        tile.appendChild(pellet);
+      }
+      if (state.powers.has(cellKey(x, y))) {
+        const power = document.createElement("span");
+        power.className = "power-pellet";
+        tile.appendChild(power);
+      }
+      maze.appendChild(tile);
     }
+  }
+
+  const topLabel = document.createElement("span");
+  topLabel.className = "map-label top";
+  topLabel.textContent = "BLOCO A • CORREDOR";
+  maze.appendChild(topLabel);
+  const bottomLabel = document.createElement("span");
+  bottomLabel.className = "map-label bottom";
+  bottomLabel.textContent = "PORTÃO PRINCIPAL";
+  maze.appendChild(bottomLabel);
+
+  ITEMS.forEach((item) => {
+    const collectible = document.createElement("div");
+    collectible.id = `item-${item.id}`;
+    collectible.className = `collectible ${item.id === "card" ? "access" : ""}`;
+    collectible.style.left = `${((item.x + 0.5) / COLS) * 100}%`;
+    collectible.style.top = `${((item.y + 0.5) / ROWS) * 100}%`;
+    collectible.innerHTML = `<span>${item.icon}</span>`;
+    collectible.setAttribute("aria-label", item.label);
+    maze.appendChild(collectible);
+  });
+
+  const player = document.createElement("div");
+  player.id = "player";
+  player.className = "entity player";
+  player.innerHTML = '<span class="player-body"></span>';
+  maze.appendChild(player);
+
+  state.ghosts.forEach((ghost) => {
+    const ghostElement = document.createElement("div");
+    ghostElement.id = `ghost-${ghost.id}`;
+    ghostElement.className = `entity ghost ${ghost.color}`;
+    ghostElement.innerHTML = '<span class="ghost-body"><span class="ghost-eyes"><i></i><i></i></span></span>';
+    maze.appendChild(ghostElement);
+  });
+
+  room.replaceChildren(maze);
+  renderEntities();
+  updateInventory();
+  updateProgress();
 }
 
-function openModal(content) {
-    const modal = $("#modal");
-    const modalContent = $("#modalContent");
-
-    if (!modal || !modalContent) return;
-
-    modalContent.innerHTML = content;
-    modal.classList.add("active");
+function setEntityPosition(element, x, y) {
+  if (!element) return;
+  element.style.left = `${((x + 0.5) / COLS) * 100}%`;
+  element.style.top = `${((y + 0.5) / ROWS) * 100}%`;
 }
 
-function closeModal() {
-    const modal = $("#modal");
-
-    if (modal) {
-        modal.classList.remove("active");
-    }
+function renderEntities() {
+  setEntityPosition($("#player"), state.player.x, state.player.y);
+  const player = $("#player");
+  if (player) {
+    player.classList.toggle("invincible", state.powerUntil > state.elapsed);
+    player.classList.toggle("moving", state.player.moving);
+  }
+  state.ghosts.forEach((ghost) => setEntityPosition($(`#ghost-${ghost.id}`), ghost.x, ghost.y));
+  ITEMS.forEach((item) => {
+    const element = $(`#item-${item.id}`);
+    if (element) element.classList.toggle("collected", state.collectedItems.has(item.id));
+  });
 }
 
-/* =========================================================
-   INICIAR / REINICIAR
-   ========================================================= */
-
-function resetState() {
-
-    if (state.timer) {
-        clearInterval(state.timer);
-    }
-
-    state.room = "classroom";
-    state.inventory = [];
-    state.solved = new Set();
-    state.flags = {};
-    state.hints = 3;
-    state.time = 900;
-    state.score = 1000;
-    state.started = true;
-
-    topDownPlayer.x = 50;
-    topDownPlayer.y = 78;
-
-    showScreen("gameScreen");
-
-    updateHintCounter();
-
-    render();
-
-    startTimer();
+function updateHud() {
+  $("#timer").textContent = formatTime(state.elapsed);
+  $("#score").textContent = formatScore(state.score);
+  $("#lives").textContent = String(state.lives);
+  $("#itemCount").textContent = `${state.collectedItems.size}/3`;
+  $("#progressText").textContent = `${Math.round(progressPercent())}%`;
 }
 
-function startTimer() {
-
-    if (state.timer) {
-        clearInterval(state.timer);
-    }
-
-    state.timer = setInterval(() => {
-
-        if (!state.started) return;
-
-        state.time--;
-
-        if (state.time < 0) {
-            state.time = 0;
-        }
-
-        updateTimer();
-
-        if (state.time <= 0) {
-            lose();
-        }
-
-    }, 1000);
-}
-
-/* =========================================================
-   RENDER
-   ========================================================= */
-
-function render() {
-
-    updateLocation();
-    updateTimer();
-    updateMap();
-    updateInventory();
-    updateProgress();
-    updateObjective();
-    updateHintCounter();
-
-    const room = $("#room");
-
-    if (room) {
-        room.innerHTML = topDownRoomHTML(state.room);
-    }
-
-    bindTopDownObjects();
-}
-
-function updateLocation() {
-
-    const element = $("#locationName");
-
-    if (element && rooms[state.room]) {
-        element.textContent = rooms[state.room].name;
-    }
-}
-
-function updateTimer() {
-
-    const element = $("#timer");
-
-    if (element) {
-        element.textContent = formatTime(state.time);
-    }
-}
-
-function updateHintCounter() {
-
-    const element = $("#hintCount");
-
-    if (element) {
-        element.textContent = state.hints;
-    }
-}
-
-function updateObjective() {
-
-    const element = $("#objectiveText");
-
-    if (!element || !rooms[state.room]) return;
-
-    element.textContent = rooms[state.room].objective;
-}
-
-function updateInventory() {
-
-    const element = $("#inventory");
-
-    if (!element) return;
-
-    if (state.inventory.length === 0) {
-        element.innerHTML = "<span>Nenhum item</span>";
-        return;
-    }
-
-    element.innerHTML = state.inventory
-        .map(item => `<span class="inventory-item">${item}</span>`)
-        .join("");
+function progressPercent() {
+  const itemProgress = state.collectedItems.size / ITEMS.length;
+  const pelletProgress = state.pelletsTotal === 0 ? 1 : 1 - state.pellets.size / state.pelletsTotal;
+  return Math.min(100, Math.round((itemProgress * 0.6 + pelletProgress * 0.4) * 100));
 }
 
 function updateProgress() {
-
-    const element = $("#progressText");
-
-    if (!element) return;
-
-    const total = 5;
-    const completed = state.solved.size;
-
-    element.textContent = `${completed}/${total}`;
+  updateHud();
 }
 
-function updateMap() {
-
-    const container = $("#mapButtons");
-
-    if (!container) return;
-
-    const roomOrder = [
-        "classroom",
-        "lab",
-        "library",
-        "science",
-        "corridor",
-        "exit"
-    ];
-
-    container.innerHTML = "";
-
-    roomOrder.forEach(id => {
-
-        const button = document.createElement("button");
-
-        button.textContent = rooms[id].name;
-        button.className = "map-btn";
-
-        if (id === state.room) {
-            button.classList.add("active");
-        }
-
-        button.onclick = () => goRoom(id);
-
-        container.appendChild(button);
-    });
+function updateInventory() {
+  const inventory = $("#inventory");
+  inventory.replaceChildren();
+  ITEMS.forEach((item) => {
+    const slot = document.createElement("div");
+    slot.className = `item ${state.collectedItems.has(item.id) ? "found" : ""}`;
+    slot.innerHTML = `<span>${state.collectedItems.has(item.id) ? item.icon : "·"}</span><small>${item.label}</small>`;
+    inventory.appendChild(slot);
+  });
 }
 
-/* =========================================================
-   MOVIMENTAÇÃO ENTRE SALAS
-   ========================================================= */
-
-function goRoom(id) {
-
-    if (!rooms[id]) return;
-
-    if (id === "lab" && !isSolved("classroomDoor")) {
-        message("Você ainda não descobriu como sair da sala de aula.");
-        return;
-    }
-
-    if (id === "library" && !isSolved("labComputer")) {
-        message("O laboratório ainda está bloqueado.");
-        return;
-    }
-
-    if (id === "science" && !isSolved("libraryBooks")) {
-        message("Você precisa resolver o enigma da biblioteca.");
-        return;
-    }
-
-    if (id === "corridor" && !isSolved("sciencePuzzle")) {
-        message("Você precisa resolver o laboratório de ciências.");
-        return;
-    }
-
-    if (id === "exit" && !isSolved("corridorDoor")) {
-        message("A saída ainda está trancada.");
-        return;
-    }
-
-    state.room = id;
-
-    topDownPlayer.x = 50;
-    topDownPlayer.y = 78;
-
-    message(`Você entrou em: ${rooms[id].name}`);
-
-    render();
+function addParticles(x, y, color = "#ffd05c") {
+  const maze = room.querySelector(".maze");
+  if (!maze) return;
+  for (let index = 0; index < 7; index += 1) {
+    const particle = document.createElement("i");
+    particle.className = "particle";
+    particle.style.left = `${((x + 0.5) / COLS) * 100}%`;
+    particle.style.top = `${((y + 0.5) / ROWS) * 100}%`;
+    particle.style.background = color;
+    particle.style.setProperty("--dx", `${(Math.random() - .5) * 40}px`);
+    particle.style.setProperty("--dy", `${(Math.random() - .5) * 40}px`);
+    maze.appendChild(particle);
+    window.setTimeout(() => particle.remove(), 720);
+  }
 }
 
-/* =========================================================
-   SALAS EM 2D VISTAS DE CIMA
-   ========================================================= */
-
-function topDownRoomHTML(id) {
-
-    const room = rooms[id];
-    const objects = topDownObjects[id] || [];
-
-    let objectsHTML = "";
-
-    objects.forEach(obj => {
-
-        objectsHTML += `
-            <button
-                class="topdown-object"
-                data-action="${obj.action}"
-                style="left:${obj.x}%; top:${obj.y}%"
-                title="${obj.label}"
-            >
-                <span class="object-icon">${obj.icon}</span>
-                <span class="object-label">${obj.label}</span>
-            </button>
-        `;
-    });
-
-    return `
-        <div class="topdown-wrap">
-
-            <div class="topdown-header">
-                <strong>${room.name}</strong>
-                <span>Explore a sala e clique nos objetos.</span>
-            </div>
-
-            <div class="topdown-map">
-
-                <div class="topdown-wall wall-top"></div>
-                <div class="topdown-wall wall-bottom"></div>
-                <div class="topdown-wall wall-left"></div>
-                <div class="topdown-wall wall-right"></div>
-
-                <div class="floor-line line-1"></div>
-                <div class="floor-line line-2"></div>
-                <div class="floor-line line-3"></div>
-                <div class="floor-line line-4"></div>
-
-                <div class="room-label start-label">
-                    INÍCIO
-                </div>
-
-                <div class="room-label exit-label">
-                    SAÍDA
-                </div>
-
-                ${objectsHTML}
-
-                <div
-                    id="topdownPlayer"
-                    class="topdown-player"
-                    style="left:${topDownPlayer.x}%; top:${topDownPlayer.y}%"
-                >
-                    🧍
-                </div>
-
-            </div>
-
-            <div class="movement-area">
-
-                <div class="movement-title">
-                    MOVIMENTAÇÃO
-                </div>
-
-                <div class="movement-buttons">
-
-                    <button data-move="up">⬆️</button>
-
-                    <div>
-                        <button data-move="left">⬅️</button>
-                        <button data-move="down">⬇️</button>
-                        <button data-move="right">➡️</button>
-                    </div>
-
-                </div>
-
-                <small>
-                    Use as setas ou W A S D para andar.
-                </small>
-
-            </div>
-
-        </div>
-    `;
+function attemptMove(entity, dx, dy, speed, delta) {
+  const amount = speed * delta;
+  let moved = false;
+  if (dx !== 0) {
+    const nextX = entity.x + dx * amount;
+    if (isWalkable(nextX, entity.y) && isWalkable(nextX, Math.round(entity.y))) {
+      entity.x = nextX;
+      moved = true;
+    }
+  }
+  if (dy !== 0) {
+    const nextY = entity.y + dy * amount;
+    if (isWalkable(entity.x, nextY) && isWalkable(Math.round(entity.x), nextY)) {
+      entity.y = nextY;
+      moved = true;
+    }
+  }
+  return moved;
 }
 
-/* =========================================================
-   CONTROLES DO 2D
-   ========================================================= */
-
-function bindTopDownObjects() {
-
-    document.querySelectorAll("[data-action]").forEach(button => {
-
-        button.addEventListener("click", () => {
-
-            const action = button.dataset.action;
-
-            actions(action);
-        });
-    });
-
-    document.querySelectorAll("[data-move]").forEach(button => {
-
-        const direction = button.dataset.move;
-
-        const start = (event) => {
-            event.preventDefault();
-            topDownPlayer.keys[direction] = true;
-        };
-
-        const stop = (event) => {
-            event.preventDefault();
-            topDownPlayer.keys[direction] = false;
-        };
-
-        button.addEventListener("pointerdown", start);
-        button.addEventListener("pointerup", stop);
-        button.addEventListener("pointerleave", stop);
-        button.addEventListener("pointercancel", stop);
-    });
+function getInputDirection() {
+  let dx = 0;
+  let dy = 0;
+  if (keys.has("arrowleft") || keys.has("a")) dx -= 1;
+  if (keys.has("arrowright") || keys.has("d")) dx += 1;
+  if (keys.has("arrowup") || keys.has("w")) dy -= 1;
+  if (keys.has("arrowdown") || keys.has("s")) dy += 1;
+  if (dx !== 0 && dy !== 0) {
+    if (Math.abs(state.player.direction.x) > 0) dy = 0;
+    else dx = 0;
+  }
+  return { x: dx, y: dy };
 }
 
-/* =========================================================
-   TECLADO
-   ========================================================= */
-
-document.addEventListener("keydown", event => {
-
-    const key = event.key.toLowerCase();
-
-    if (key === "arrowup" || key === "w") {
-        topDownPlayer.keys.up = true;
-    }
-
-    if (key === "arrowdown" || key === "s") {
-        topDownPlayer.keys.down = true;
-    }
-
-    if (key === "arrowleft" || key === "a") {
-        topDownPlayer.keys.left = true;
-    }
-
-    if (key === "arrowright" || key === "d") {
-        topDownPlayer.keys.right = true;
-    }
-});
-
-document.addEventListener("keyup", event => {
-
-    const key = event.key.toLowerCase();
-
-    if (key === "arrowup" || key === "w") {
-        topDownPlayer.keys.up = false;
-    }
-
-    if (key === "arrowdown" || key === "s") {
-        topDownPlayer.keys.down = false;
-    }
-
-    if (key === "arrowleft" || key === "a") {
-        topDownPlayer.keys.left = false;
-    }
-
-    if (key === "arrowright" || key === "d") {
-        topDownPlayer.keys.right = false;
-    }
-});
-
-/* =========================================================
-   LOOP DO JOGADOR
-   ========================================================= */
-
-function topDownLoop() {
-
-    if (state.started) {
-
-        let moved = false;
-
-        if (topDownPlayer.keys.up) {
-            topDownPlayer.y -= topDownPlayer.speed;
-            moved = true;
-        }
-
-        if (topDownPlayer.keys.down) {
-            topDownPlayer.y += topDownPlayer.speed;
-            moved = true;
-        }
-
-        if (topDownPlayer.keys.left) {
-            topDownPlayer.x -= topDownPlayer.speed;
-            moved = true;
-        }
-
-        if (topDownPlayer.keys.right) {
-            topDownPlayer.x += topDownPlayer.speed;
-            moved = true;
-        }
-
-        topDownPlayer.x = Math.max(
-            7,
-            Math.min(93, topDownPlayer.x)
-        );
-
-        topDownPlayer.y = Math.max(
-            10,
-            Math.min(90, topDownPlayer.y)
-        );
-
-        if (moved) {
-
-            const player = document.getElementById("topdownPlayer");
-
-            if (player) {
-                player.style.left = `${topDownPlayer.x}%`;
-                player.style.top = `${topDownPlayer.y}%`;
-            }
-        }
-    }
-
-    requestAnimationFrame(topDownLoop);
+function collectAtPlayer() {
+  const current = cellKey(Math.round(state.player.x), Math.round(state.player.y));
+  if (state.pellets.delete(current)) {
+    state.score += 10;
+    playTone(540, 0.035, "square", 0.018);
+    addParticles(Math.round(state.player.x), Math.round(state.player.y));
+  }
+  if (state.powers.delete(current)) {
+    state.score += 50;
+    state.powerUntil = state.elapsed + 8;
+    playPowerSound();
+    showToast("Energia ativada: os inspetores estão vulneráveis!");
+    addParticles(Math.round(state.player.x), Math.round(state.player.y), "#29e7d2");
+  }
 }
 
-topDownLoop();
-
-/* =========================================================
-   SISTEMA DE AÇÕES
-   ========================================================= */
-
-function actions(action) {
-
-    switch (action) {
-
-        case "blackboard":
-            openBlackboard();
-            break;
-
-        case "clock":
-            openClock();
-            break;
-
-        case "desk":
-            openDesk();
-            break;
-
-        case "cabinet":
-            openCabinet();
-            break;
-
-        case "computer":
-            openComputer();
-            break;
-
-        case "keyboard":
-            openKeyboard();
-            break;
-
-        case "shelf":
-            openShelf();
-            break;
-
-        case "books":
-            openBooks();
-            break;
-
-        case "catalog":
-            openCatalog();
-            break;
-
-        case "reading":
-            openReading();
-            break;
-
-        case "flasks":
-            openFlasks();
-            break;
-
-        case "board":
-            openBoard();
-            break;
-
-        case "box":
-            openBox();
-            break;
-
-        case "locker":
-            openLocker();
-            break;
-
-        case "notice":
-            openNotice();
-            break;
-
-        case "camera":
-            openCamera();
-            break;
-
-        case "final":
-            openFinal();
-            break;
-    }
+function nearestInteraction() {
+  let nearest = null;
+  let distance = Infinity;
+  ITEMS.forEach((item) => {
+    if (state.collectedItems.has(item.id)) return;
+    const currentDistance = Math.hypot(state.player.x - item.x, state.player.y - item.y);
+    if (currentDistance < distance) { nearest = { type: "item", item }; distance = currentDistance; }
+  });
+  const gateDistance = Math.hypot(state.player.x - 21, state.player.y - 13);
+  if (gateDistance < distance) { nearest = { type: "gate" }; distance = gateDistance; }
+  return distance <= 1.15 ? nearest : null;
 }
 
-/* =========================================================
-   SALA DE AULA
-   ========================================================= */
-
-function openBlackboard() {
-
-    if (isSolved("blackboard")) {
-        openModal(`
-            <h2>Quadro</h2>
-            <p>Você já examinou o quadro.</p>
-            <p><strong>Parece que o relógio é importante...</strong></p>
-        `);
-        return;
-    }
-
-    openModal(`
-        <h2>Quadro</h2>
-
-        <p>Há uma anotação escrita no canto do quadro:</p>
-
-        <div class="clue">
-            "O tempo pode abrir portas."
-        </div>
-
-        <p>Talvez você deva observar o relógio.</p>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Entendi
-        </button>
-    `);
-
-    markSolved("blackboard");
+function updateInteraction() {
+  const next = nearestInteraction();
+  state.interactionTarget = next;
+  if (!next) {
+    if (!state.paused && !state.ended) setMessage("Colete os pontos e encontre o cartão de acesso.");
+    return;
+  }
+  if (next.type === "item") setMessage(`Pressione E para pegar ${next.item.label}.`);
+  else if (state.collectedItems.has("card")) setMessage("Pressione E para abrir o portão principal.");
+  else setMessage("O portão está trancado. Encontre o cartão de acesso.");
 }
 
-function openClock() {
-
-    openModal(`
-        <h2>Relógio</h2>
-
-        <p>O relógio está parado exatamente em:</p>
-
-        <div class="big-code">
-            16:20
-        </div>
-
-        <p>Talvez esse horário seja um código.</p>
-
-        <input
-            id="classCode"
-            type="text"
-            maxlength="4"
-            placeholder="Digite o código"
-        >
-
-        <button class="primary-btn" onclick="checkClassCode()">
-            Confirmar
-        </button>
-    `);
-}
-
-function checkClassCode() {
-
-    const input = $("#classCode");
-
-    if (!input) return;
-
-    const value = input.value.trim();
-
-    if (value === "1620") {
-
-        markSolved("classroomDoor");
-
-        state.score += 100;
-
-        addInventory("🔑 Chave da sala");
-
-        closeModal();
-
-        message("Código correto! Você encontrou a chave da sala.");
-
-        render();
-
-    } else {
-
-        state.score -= 25;
-
-        message("Código incorreto. Observe melhor o relógio.");
-
-        input.value = "";
-    }
-}
-
-function openDesk() {
-
-    if (hasItem("🔑 Chave da sala")) {
-
-        openModal(`
-            <h2>Mesa</h2>
-            <p>Você encontra apenas materiais escolares.</p>
-            <p>A chave que encontrou parece ser mais importante.</p>
-
-            <button class="primary-btn" onclick="closeModal()">
-                Fechar
-            </button>
-        `);
-
-        return;
-    }
-
-    openModal(`
-        <h2>Mesa</h2>
-
-        <p>Há duas gavetas.</p>
-
-        <button class="choice-btn" onclick="deskChoice('A')">
-            Abrir gaveta A
-        </button>
-
-        <button class="choice-btn" onclick="deskChoice('B')">
-            Abrir gaveta B
-        </button>
-    `);
-}
-
-function deskChoice(choice) {
-
-    if (choice === "A") {
-
-        addInventory("🔑 Chave da sala");
-
-        closeModal();
-
-        message("Você encontrou uma chave!");
-
-        render();
-
-    } else {
-
-        openModal(`
-            <h2>Gaveta B</h2>
-            <p>Está vazia.</p>
-
-            <button class="primary-btn" onclick="closeModal()">
-                Voltar
-            </button>
-        `);
-    }
-}
-
-function openCabinet() {
-
-    openModal(`
-        <h2>Armário</h2>
-
-        <p>O armário está cheio de livros e materiais antigos.</p>
-
-        <p>
-            Você encontra uma pequena frase:
-            <strong>"A tecnologia guarda segredos."</strong>
-        </p>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-/* =========================================================
-   LABORATÓRIO DE INFORMÁTICA
-   ========================================================= */
-
-function openComputer() {
-
-    if (isSolved("labComputer")) {
-
-        openModal(`
-            <h2>Computador</h2>
-
-            <p>O computador está desbloqueado.</p>
-
-            <p>
-                Na tela aparece:
-                <strong>"Procure a biblioteca."</strong>
-            </p>
-
-            <button class="primary-btn" onclick="closeModal()">
-                Fechar
-            </button>
-        `);
-
-        return;
-    }
-
-    openModal(`
-        <h2>Computador</h2>
-
-        <p>O computador está protegido por uma senha.</p>
-
-        <p>
-            A tela mostra:
-            <strong>"Descubra a sequência no teclado."</strong>
-        </p>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-function openKeyboard() {
-
-    openModal(`
-        <h2>Teclado</h2>
-
-        <p>Algumas teclas estão destacadas:</p>
-
-        <div class="big-code">
-            2 - 4 - 6 - 8
-        </div>
-
-        <p>Isso provavelmente é a senha.</p>
-
-        <input
-            id="computerCode"
-            type="text"
-            maxlength="4"
-            placeholder="Senha"
-        >
-
-        <button class="primary-btn" onclick="computerCheck()">
-            Confirmar
-        </button>
-    `);
-}
-
-function computerCheck() {
-
-    const input = $("#computerCode");
-
-    if (!input) return;
-
-    if (input.value.trim() === "2468") {
-
-        markSolved("labComputer");
-
-        state.score += 150;
-
-        addInventory("💾 Acesso ao computador");
-
-        closeModal();
-
-        message("Senha correta! O computador foi desbloqueado.");
-
-        render();
-
-    } else {
-
-        state.score -= 25;
-
-        message("Senha incorreta.");
-
-        input.value = "";
-    }
-}
-
-function openShelf() {
-
-    if (!hasItem("🔋 Bateria")) {
-
-        addInventory("🔋 Bateria");
-
-        openModal(`
-            <h2>Estante</h2>
-
-            <p>
-                Entre os equipamentos antigos você encontrou
-                uma bateria.
-            </p>
-
-            <p><strong>Item adicionado ao inventário.</strong></p>
-
-            <button class="primary-btn" onclick="closeModal()">
-                Pegar
-            </button>
-        `);
-
-        return;
-    }
-
-    openModal(`
-        <h2>Estante</h2>
-
-        <p>Você já pegou a bateria.</p>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-/* =========================================================
-   BIBLIOTECA
-   ========================================================= */
-
-function openBooks() {
-
-    openModal(`
-        <h2>Livros</h2>
-
-        <p>Três livros parecem diferentes:</p>
-
-        <div class="clue">
-            Livro 3<br>
-            Livro 7<br>
-            Livro 12
-        </div>
-
-        <p>
-            Os números parecem formar alguma coisa.
-        </p>
-
-        <button class="primary-btn" onclick="librarySolved()">
-            Examinar
-        </button>
-    `);
-}
-
-function librarySolved() {
-
-    markSolved("libraryBooks");
-
+function interactCurrent() {
+  if (!state.running || state.paused || state.ended) return;
+  const target = state.interactionTarget || nearestInteraction();
+  if (!target) return;
+  if (target.type === "item") {
+    state.collectedItems.add(target.item.id);
     state.score += 150;
-
-    addInventory("📕 Livro com a pista");
-
-    openModal(`
-        <h2>Pista encontrada!</h2>
-
-        <p>Os livros formam a palavra:</p>
-
-        <div class="big-code">
-            CORREDOR
-        </div>
-
-        <p>
-            Talvez essa palavra indique para onde você deve ir.
-        </p>
-
-        <button class="primary-btn" onclick="closeModal(); render()">
-            Continuar
-        </button>
-    `);
-}
-
-function openCatalog() {
-
-    openModal(`
-        <h2>Catálogo</h2>
-
-        <p>
-            O catálogo possui vários registros de alunos.
-        </p>
-
-        <p>
-            Um registro está marcado:
-        </p>
-
-        <div class="clue">
-            "A resposta está onde os livros descansam."
-        </div>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-function openReading() {
-
-    if (!hasItem("🔎 Lente")) {
-
-        addInventory("🔎 Lente");
-
-        openModal(`
-            <h2>Mesa de leitura</h2>
-
-            <p>
-                Debaixo da mesa você encontrou uma pequena lente.
-            </p>
-
-            <p><strong>Lente adicionada ao inventário.</strong></p>
-
-            <button class="primary-btn" onclick="closeModal()">
-                Pegar
-            </button>
-        `);
-
-        return;
-    }
-
-    openModal(`
-        <h2>Mesa de leitura</h2>
-
-        <p>Você já encontrou a lente.</p>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-/* =========================================================
-   LABORATÓRIO DE CIÊNCIAS
-   ========================================================= */
-
-function openFlasks() {
-
-    openModal(`
-        <h2>Frascos</h2>
-
-        <p>
-            Os frascos possuem números:
-        </p>
-
-        <div class="big-code">
-            1 → 2 → 4 → 8 → ?
-        </div>
-
-        <p>
-            Qual é o próximo número?
-        </p>
-
-        <input
-            id="flaskCode"
-            type="number"
-            placeholder="Resposta"
-        >
-
-        <button class="primary-btn" onclick="flaskChoice()">
-            Confirmar
-        </button>
-    `);
-}
-
-function flaskChoice() {
-
-    const input = $("#flaskCode");
-
-    if (!input) return;
-
-    if (input.value.trim() === "16") {
-
-        markSolved("sciencePuzzle");
-
-        state.score += 200;
-
-        addInventory("🪪 Cartão de acesso");
-
-        closeModal();
-
-        message("Sequência correta! Você encontrou um cartão.");
-
-        render();
-
+    playCollectSound();
+    addParticles(target.item.x, target.item.y, "#ffd05c");
+    updateInventory();
+    updateHud();
+    if (target.item.id === "card") {
+      $("#objectiveText").textContent = "Você tem o cartão. Vá até a saída verde.";
+      $("#hintText").textContent = "A saída está no canto inferior direito.";
+      showToast("Cartão de acesso encontrado!");
     } else {
-
-        state.score -= 30;
-
-        message("Resposta incorreta. Observe a sequência.");
-
-        input.value = "";
+      showToast(`${target.item.label} adicionado ao inventário.`);
     }
-}
-
-function openBoard() {
-
-    openModal(`
-        <h2>Quadro de Ciências</h2>
-
-        <p>Há uma expressão escrita:</p>
-
-        <div class="big-code">
-            2 × 2 × 2 × 2
-        </div>
-
-        <p>
-            Ela parece confirmar a lógica da sequência dos frascos.
-        </p>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-function openBox() {
-
-    if (!isSolved("sciencePuzzle")) {
-
-        openModal(`
-            <h2>Caixa</h2>
-
-            <p>
-                A caixa está trancada.
-            </p>
-
-            <p>
-                Você precisa resolver o enigma dos frascos primeiro.
-            </p>
-
-            <button class="primary-btn" onclick="closeModal()">
-                Fechar
-            </button>
-        `);
-
-        return;
+    updateInteraction();
+    return;
+  }
+  if (target.type === "gate") {
+    if (state.collectedItems.has("card")) winGame();
+    else {
+      showModal("Portão principal", "A luz vermelha pisca. O portão exige um cartão de acesso para abrir.");
+      playTone(120, 0.16, "sawtooth", 0.04);
     }
-
-    openModal(`
-        <h2>Caixa</h2>
-
-        <p>
-            O cartão encontrado no laboratório permite abrir a caixa.
-        </p>
-
-        <p>
-            Dentro dela existe uma anotação:
-        </p>
-
-        <div class="clue">
-            "O corredor guarda a última chave."
-        </div>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
+  }
 }
 
-/* =========================================================
-   CORREDOR
-   ========================================================= */
-
-function openLocker() {
-
-    openModal(`
-        <h2>Armário do corredor</h2>
-
-        <p>
-            O armário possui um teclado numérico.
-        </p>
-
-        <p>
-            Uma pequena etiqueta mostra:
-        </p>
-
-        <div class="big-code">
-            1 - 2 - 3
-        </div>
-
-        <input
-            id="lockerCode"
-            type="text"
-            maxlength="3"
-            placeholder="Código"
-        >
-
-        <button class="primary-btn" onclick="lockerSolved()">
-            Abrir
-        </button>
-    `);
+function validNeighbors(x, y) {
+  return [
+    { x: x + 1, y, dx: 1, dy: 0 },
+    { x: x - 1, y, dx: -1, dy: 0 },
+    { x, y: y + 1, dx: 0, dy: 1 },
+    { x, y: y - 1, dx: 0, dy: -1 }
+  ].filter((next) => isWalkable(next.x, next.y));
 }
 
-function lockerSolved() {
-
-    const input = $("#lockerCode");
-
-    if (!input) return;
-
-    if (input.value.trim() === "123") {
-
-        markSolved("corridorDoor");
-
-        state.score += 200;
-
-        addInventory("📝 Bilhete da saída");
-
-        closeModal();
-
-        message("Armário aberto! Você encontrou um bilhete.");
-
-        render();
-
-    } else {
-
-        state.score -= 25;
-
-        message("Código incorreto.");
-
-        input.value = "";
-    }
-}
-
-function openNotice() {
-
-    openModal(`
-        <h2>Aviso</h2>
-
-        <p>
-            Há um aviso antigo preso na parede.
-        </p>
-
-        <div class="clue">
-            "A câmera observa tudo,
-            mas não consegue esconder o que está escrito."
-        </div>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-function openCamera() {
-
-    openModal(`
-        <h2>Câmera</h2>
-
-        <p>
-            A câmera está apontada para a saída.
-        </p>
-
-        <p>
-            Em uma pequena etiqueta está escrito:
-        </p>
-
-        <div class="big-code">
-            2016
-        </div>
-
-        <p>
-            Talvez esse seja o código final.
-        </p>
-
-        <button class="primary-btn" onclick="closeModal()">
-            Fechar
-        </button>
-    `);
-}
-
-/* =========================================================
-   SAÍDA FINAL
-   ========================================================= */
-
-function openFinal() {
-
-    openModal(`
-        <h2>🚪 Portão da Escola</h2>
-
-        <p>
-            Você chegou à saída!
-        </p>
-
-        <p>
-            O portão pede uma senha de quatro números.
-        </p>
-
-        <input
-            id="finalCode"
-            type="text"
-            maxlength="4"
-            placeholder="Senha final"
-        >
-
-        <button class="primary-btn" onclick="finalCheck()">
-            Abrir portão
-        </button>
-    `);
-}
-
-function finalCheck() {
-
-    const input = $("#finalCode");
-
-    if (!input) return;
-
-    if (input.value.trim() === "2016") {
-
-        closeModal();
-
-        state.score += 300;
-
-        win();
-
-    } else {
-
-        state.score -= 50;
-
-        message("Senha final incorreta.");
-
-        input.value = "";
-    }
-}
-
-/* =========================================================
-   VITÓRIA
-   ========================================================= */
-
-function win() {
-
-    state.started = false;
-
-    if (state.timer) {
-        clearInterval(state.timer);
-        state.timer = null;
-    }
-
-    if (state.time > 0) {
-        state.score += state.time;
-    }
-
-    if (state.score < 0) {
-        state.score = 0;
-    }
-
-    const summary = $("#winSummary");
-    const finalScore = $("#finalScore");
-
-    if (summary) {
-        summary.textContent =
-            "Você resolveu os enigmas e conseguiu escapar da escola antes que o tempo acabasse!";
-    }
-
-    if (finalScore) {
-        finalScore.textContent = state.score;
-    }
-
-    showScreen("winScreen");
-}
-
-/* =========================================================
-   DERROTA
-   ========================================================= */
-
-function lose() {
-
-    state.started = false;
-
-    if (state.timer) {
-        clearInterval(state.timer);
-        state.timer = null;
-    }
-
-    showScreen("loseScreen");
-}
-
-/* =========================================================
-   DICAS
-   ========================================================= */
-
-function useHint() {
-
-    if (state.hints <= 0) {
-        message("Você não possui mais dicas.");
-        return;
-    }
-
-    state.hints--;
-
-    updateHintCounter();
-
-    const hints = {
-
-        classroom:
-            "Dica: observe o relógio. O horário mostrado pode ser usado como código.",
-
-        lab:
-            "Dica: procure uma sequência numérica perto do computador.",
-
-        library:
-            "Dica: os livros 3, 7 e 12 são importantes.",
-
-        science:
-            "Dica: a sequência 1, 2, 4, 8 continua dobrando.",
-
-        corridor:
-            "Dica: observe o código indicado no armário.",
-
-        exit:
-            "Dica: a câmera possui uma pista importante para a senha final."
-    };
-
-    message(hints[state.room] || "Explore melhor o ambiente.");
-}
-
-/* =========================================================
-   EVENTOS DOS BOTÕES DO HTML
-   ========================================================= */
-
-const startButton = $("#startBtn");
-
-if (startButton) {
-    startButton.addEventListener("click", resetState);
-}
-
-const howButton = $("#howBtn");
-
-if (howButton) {
-
-    howButton.addEventListener("click", () => {
-
-        openModal(`
-            <h2>Como jogar</h2>
-
-            <p>
-                Explore cada sala e procure pistas.
-            </p>
-
-            <p>
-                Clique nos objetos para investigar.
-            </p>
-
-            <p>
-                Você também pode andar pelo mapa usando
-                as setas ou as teclas W, A, S e D.
-            </p>
-
-            <p>
-                Resolva os enigmas para desbloquear as próximas salas.
-            </p>
-
-            <button class="primary-btn" onclick="closeModal()">
-                Entendi
-            </button>
-        `);
+function ghostNextStep(ghost) {
+  const start = { x: Math.round(ghost.x), y: Math.round(ghost.y) };
+  const target = { x: Math.round(state.player.x), y: Math.round(state.player.y) };
+  const queue = [start];
+  const parents = new Map([[cellKey(start.x, start.y), null]]);
+  while (queue.length) {
+    const current = queue.shift();
+    if (current.x === target.x && current.y === target.y) break;
+    validNeighbors(current.x, current.y).forEach((next) => {
+      const key = cellKey(next.x, next.y);
+      if (!parents.has(key)) { parents.set(key, current); queue.push(next); }
     });
+  }
+  let cursor = target;
+  if (!parents.has(cellKey(cursor.x, cursor.y))) {
+    const options = validNeighbors(start.x, start.y);
+    return options[Math.floor(Math.random() * Math.max(1, options.length))] || start;
+  }
+  while (parents.get(cellKey(cursor.x, cursor.y)) && cellKey(parents.get(cellKey(cursor.x, cursor.y)).x, parents.get(cellKey(cursor.x, cursor.y)).y) !== cellKey(start.x, start.y)) {
+    cursor = parents.get(cellKey(cursor.x, cursor.y));
+  }
+  return cursor;
 }
 
-const hintButton = $("#hintBtn");
-
-if (hintButton) {
-    hintButton.addEventListener("click", useHint);
+function moveGhosts(delta) {
+  state.lastGhostMove += delta;
+  const interval = state.powerUntil > state.elapsed ? 0.28 : 0.34;
+  if (state.lastGhostMove < interval) return;
+  state.lastGhostMove = 0;
+  state.ghosts.forEach((ghost, index) => {
+    const next = ghostNextStep(ghost);
+    const distance = Math.hypot(next.x - ghost.x, next.y - ghost.y);
+    if (distance > 0.01) {
+      ghost.direction = { x: Math.sign(next.x - ghost.x), y: Math.sign(next.y - ghost.y) };
+      ghost.x += ghost.direction.x * 0.72;
+      ghost.y += ghost.direction.y * 0.72;
+    } else {
+      const options = validNeighbors(Math.round(ghost.x), Math.round(ghost.y));
+      const random = options[(Math.floor(state.elapsed * 10) + index) % Math.max(1, options.length)];
+      if (random) { ghost.x = random.x; ghost.y = random.y; }
+    }
+  });
 }
 
-const restartButton = $("#restartBtn");
-
-if (restartButton) {
-    restartButton.addEventListener("click", resetState);
+function checkGhostCollisions() {
+  for (const ghost of state.ghosts) {
+    if (Math.hypot(state.player.x - ghost.x, state.player.y - ghost.y) > 0.62) continue;
+    if (state.powerUntil > state.elapsed) {
+      state.score += 250;
+      ghost.x = 11 + Math.random() * 2;
+      ghost.y = 7;
+      playTone(190, 0.07, "square", 0.05);
+      showToast("Inspetor despistado! +250 pontos");
+      continue;
+    }
+    loseLife();
+    break;
+  }
 }
 
-const playAgainButton = $("#playAgainBtn");
-
-if (playAgainButton) {
-    playAgainButton.addEventListener("click", resetState);
+function loseLife() {
+  state.lives -= 1;
+  playHitSound();
+  const player = $("#player");
+  if (player) player.classList.add("hit");
+  if (state.lives <= 0) {
+    window.setTimeout(() => loseGame("Os inspetores encontraram você três vezes."), 260);
+    return;
+  }
+  showToast(`Cuidado! Você perdeu uma vida. Restam ${state.lives}.`);
+  state.player.x = 1;
+  state.player.y = 13;
+  state.player.direction = { x: 1, y: 0 };
+  state.ghosts = GHOST_STARTS.map((ghost) => ({ ...ghost, direction: { ...ghost.direction } }));
+  updateHud();
+  renderEntities();
 }
 
-const tryAgainButton = $("#tryAgainBtn");
-
-if (tryAgainButton) {
-    tryAgainButton.addEventListener("click", resetState);
+function gameLoop(timestamp) {
+  if (!state.lastTime) state.lastTime = timestamp;
+  const delta = Math.min(0.05, (timestamp - state.lastTime) / 1000);
+  state.lastTime = timestamp;
+  if (state.running && !state.paused && !state.ended) {
+    state.elapsed += delta;
+    const input = getInputDirection();
+    state.player.moving = input.x !== 0 || input.y !== 0;
+    if (state.player.moving) {
+      state.player.direction = { ...input };
+      attemptMove(state.player, input.x, input.y, 5.3, delta);
+    }
+    collectAtPlayer();
+    moveGhosts(delta);
+    checkGhostCollisions();
+    renderEntities();
+    updateInteraction();
+    updateHud();
+    if (state.elapsed >= GAME_TIME) loseGame("O relógio chegou a zero antes de você alcançar o portão.");
+  }
+  window.requestAnimationFrame(gameLoop);
 }
 
-const modalClose = $("#modalClose");
-
-if (modalClose) {
-    modalClose.addEventListener("click", closeModal);
+function startGame() {
+  startAudio();
+  prepareBoard();
+  renderBoard();
+  state.started = true;
+  state.running = true;
+  state.paused = false;
+  showScreen("gameScreen");
+  room.focus();
+  $("#pauseOverlay").classList.add("hidden");
+  setMessage("Use as setas ou WASD para explorar. Pressione E perto de um item.");
+  showToast("O último sinal tocou. Encontre a saída!");
 }
 
-/* =========================================================
-   FECHAR MODAL CLICANDO FORA
-   ========================================================= */
-
-const modal = $("#modal");
-
-if (modal) {
-
-    modal.addEventListener("click", event => {
-
-        if (event.target === modal) {
-            closeModal();
-        }
-    });
+function togglePause(force) {
+  if (!state.running || state.ended) return;
+  state.paused = typeof force === "boolean" ? force : !state.paused;
+  $("#pauseOverlay").classList.toggle("hidden", !state.paused);
+  $("#pauseOverlay").setAttribute("aria-hidden", String(!state.paused));
+  if (state.paused) setMessage("Jogo pausado.");
+  else { setMessage("De volta ao corredor."); room.focus(); }
 }
 
-/* =========================================================
-   GARANTIA PARA BOTÕES INLINE
-   ========================================================= */
+function resetGame() {
+  startGame();
+}
 
-window.checkClassCode = checkClassCode;
-window.deskChoice = deskChoice;
-window.computerCheck = computerCheck;
-window.librarySolved = librarySolved;
-window.flaskChoice = flaskChoice;
-window.lockerSolved = lockerSolved;
-window.finalCheck = finalCheck;
-window.closeModal = closeModal;
+function winGame() {
+  if (state.ended) return;
+  state.ended = true;
+  state.running = false;
+  playWinSound();
+  $("#finalScore").textContent = formatScore(state.score + Math.max(0, Math.floor(GAME_TIME - state.elapsed)) * 2);
+  $("#winSummary").textContent = `Você encontrou ${state.collectedItems.size} itens, desviou dos inspetores e saiu com ${Math.ceil(GAME_TIME - state.elapsed)} segundos de sobra.`;
+  showScreen("winScreen");
+}
 
-/* =========================================================
-   FIM DO SCRIPT
-   ========================================================= */
+function loseGame(reason) {
+  if (state.ended) return;
+  state.ended = true;
+  state.running = false;
+  $("#loseSummary").textContent = reason;
+  showScreen("loseScreen");
+}
+
+function showModal(title, text) {
+  $("#modalContent").innerHTML = `<h3 id="modalTitle">${title}</h3><p>${text}</p><button class="primary-btn" id="modalAction">VOLTAR AO LABIRINTO</button>`;
+  $("#modal").classList.remove("hidden");
+  $("#modalAction").addEventListener("click", closeModal, { once: true });
+}
+
+function closeModal() {
+  $("#modal").classList.add("hidden");
+  room.focus();
+}
+
+function handleKeyDown(event) {
+  const key = event.key.toLowerCase();
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", " ", "e", "enter"].includes(key)) event.preventDefault();
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) keys.add(key);
+  if (key === "e" || key === "enter") interactCurrent();
+  if (key === " ") togglePause();
+}
+
+function handleKeyUp(event) {
+  keys.delete(event.key.toLowerCase());
+}
+
+function bindEvents() {
+  $("#startBtn").addEventListener("click", startGame);
+  $("#restartBtn").addEventListener("click", resetGame);
+  $("#playAgainBtn").addEventListener("click", startGame);
+  $("#tryAgainBtn").addEventListener("click", startGame);
+  $("#howBtn").addEventListener("click", () => showScreen("howScreen"));
+  $("#resumeBtn").addEventListener("click", () => togglePause(false));
+  $("#modalClose").addEventListener("click", closeModal);
+  $("#modal").addEventListener("click", (event) => { if (event.target.id === "modal") closeModal(); });
+  $("#soundBtn").addEventListener("click", () => {
+    state.soundOn = !state.soundOn;
+    $("#soundBtn").textContent = state.soundOn ? "♫ SOM" : "♫ MUDO";
+    $("#soundBtn").setAttribute("aria-pressed", String(state.soundOn));
+    if (state.soundOn) { startAudio(); playTone(600, 0.1, "triangle", 0.04); }
+  });
+  document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => showScreen(button.dataset.close === "howScreen" ? "startScreen" : button.dataset.close)));
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("keyup", handleKeyUp);
+  room.addEventListener("pointerdown", () => room.focus());
+  document.querySelectorAll("[data-direction]").forEach((button) => {
+    const direction = button.dataset.direction;
+    const down = (event) => { event.preventDefault(); keys.add(direction === "up" ? "arrowup" : direction === "down" ? "arrowdown" : direction === "left" ? "arrowleft" : "arrowright"); };
+    const up = (event) => { event.preventDefault(); keys.delete(direction === "up" ? "arrowup" : direction === "down" ? "arrowdown" : direction === "left" ? "arrowleft" : "arrowright"); };
+    button.addEventListener("pointerdown", down);
+    button.addEventListener("pointerup", up);
+    button.addEventListener("pointerleave", up);
+    button.addEventListener("pointercancel", up);
+  });
+}
+
+bindEvents();
+prepareBoard();
+window.requestAnimationFrame(gameLoop);
