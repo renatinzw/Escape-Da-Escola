@@ -1,4 +1,3 @@
-
 /*
  * ESCAPE SCHOOL — Depois do Sinal
  * Jogo 2D top-down sem bibliotecas externas.
@@ -19,12 +18,12 @@ const MAP = [
   "#.....#.....#.....#...#",
   "#####.#####.#.#####.###",
   "#.........#.#.........#",
-  "###.#####.#.#####.####",
+  "###.#####.#.#####.#####",
   "#...#.....#.....#.....#",
   "#.#.#.###.#####.###.#.#",
   "#.#........#........#.#",
   "#.########.#.########.#",
-  "#...................G#",
+  "#...................G##",
   "#######################"
 ];
 
@@ -68,7 +67,8 @@ const state = {
   pelletsTotal: 0,
   powers: new Set(),
   collectedItems: new Set(),
-  interactionTarget: null
+  interactionTarget: null,
+  modalOpen: false
 };
 
 const keys = new Set();
@@ -175,7 +175,7 @@ function prepareBoard() {
     }
   }
 
-  [state.player, ...state.ghosts, ...ITEMS, ...POWER_POSITIONS].forEach((entity) => {
+  [state.player, ...state.ghosts, ...ITEMS, ...POWER_POSITIONS, { x: 20, y: 13 }].forEach((entity) => {
     if (entity && Number.isFinite(entity.x) && Number.isFinite(entity.y)) state.pellets.delete(cellKey(entity.x, entity.y));
   });
   state.pelletsTotal = state.pellets.size;
@@ -237,6 +237,11 @@ function renderBoard() {
     collectible.style.top = `${((item.y + 0.5) / ROWS) * 100}%`;
     collectible.innerHTML = `<span>${item.icon}</span>`;
     collectible.setAttribute("aria-label", item.label);
+    collectible.setAttribute("role", "button");
+    collectible.setAttribute("tabindex", "0");
+    collectible.title = `Abrir puzzle: ${item.label}`;
+    collectible.addEventListener("click", () => openPuzzle(item));
+    collectible.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openPuzzle(item); } });
     maze.appendChild(collectible);
   });
 
@@ -383,7 +388,7 @@ function nearestInteraction() {
     const currentDistance = Math.hypot(state.player.x - item.x, state.player.y - item.y);
     if (currentDistance < distance) { nearest = { type: "item", item }; distance = currentDistance; }
   });
-  const gateDistance = Math.hypot(state.player.x - 21, state.player.y - 13);
+  const gateDistance = Math.hypot(state.player.x - 20, state.player.y - 13);
   if (gateDistance < distance) { nearest = { type: "gate" }; distance = gateDistance; }
   return distance <= 1.15 ? nearest : null;
 }
@@ -401,24 +406,11 @@ function updateInteraction() {
 }
 
 function interactCurrent() {
-  if (!state.running || state.paused || state.ended) return;
+  if (!state.running || state.paused || state.ended || state.modalOpen) return;
   const target = state.interactionTarget || nearestInteraction();
   if (!target) return;
   if (target.type === "item") {
-    state.collectedItems.add(target.item.id);
-    state.score += 150;
-    playCollectSound();
-    addParticles(target.item.x, target.item.y, "#ffd05c");
-    updateInventory();
-    updateHud();
-    if (target.item.id === "card") {
-      $("#objectiveText").textContent = "Você tem o cartão. Vá até a saída verde.";
-      $("#hintText").textContent = "A saída está no canto inferior direito.";
-      showToast("Cartão de acesso encontrado!");
-    } else {
-      showToast(`${target.item.label} adicionado ao inventário.`);
-    }
-    updateInteraction();
+    openPuzzle(target.item);
     return;
   }
   if (target.type === "gate") {
@@ -428,6 +420,113 @@ function interactCurrent() {
       playTone(120, 0.16, "sawtooth", 0.04);
     }
   }
+}
+
+function completeItem(item) {
+  if (state.collectedItems.has(item.id)) return;
+  state.collectedItems.add(item.id);
+  state.score += 150;
+  playCollectSound();
+  addParticles(item.x, item.y, "#ffd05c");
+  updateInventory();
+  updateHud();
+  if (item.id === "card") {
+    $("#objectiveText").textContent = "Você tem o cartão. Vá até a saída verde.";
+    $("#hintText").textContent = "A saída está no canto inferior direito.";
+    showToast("Cartão de acesso encontrado!");
+  } else if (item.id === "notebook") {
+    $("#objectiveText").textContent = "Resolva o puzzle da chave e depois procure o cartão.";
+    $("#hintText").textContent = "A chave está na parte superior direita do corredor.";
+    showToast("Caderno resolvido! A pista aponta para a chave.");
+  } else {
+    $("#objectiveText").textContent = "Agora encontre e resolva o puzzle do cartão.";
+    $("#hintText").textContent = "O cartão está próximo da saída, no canto inferior direito.";
+    showToast("Puzzle da chave resolvido! O cartão está liberado.");
+  }
+  updateInteraction();
+}
+
+function openPuzzle(item) {
+  if (!item || state.collectedItems.has(item.id)) return;
+  let content = "";
+  if (item.id === "notebook") {
+    content = `
+      <div class="puzzle-kicker">PISTA 01 • CADERNO</div>
+      <h3 id="modalTitle">A anotação do aluno</h3>
+      <p>Uma sequência está escrita na última página. Qual número completa o padrão?</p>
+      <div class="sequence">2 • 4 • 6 • ?</div>
+      <div class="puzzle-grid">
+        <button class="puzzle-choice" data-puzzle-answer="7">7</button>
+        <button class="puzzle-choice" data-puzzle-answer="8">8</button>
+        <button class="puzzle-choice" data-puzzle-answer="9">9</button>
+      </div>
+      <p id="puzzleFeedback" class="puzzle-feedback" aria-live="polite"></p>`;
+  } else if (item.id === "key") {
+    content = `
+      <div class="puzzle-kicker">PISTA 02 • CHAVE</div>
+      <h3 id="modalTitle">A porta da sala dos professores</h3>
+      <p>O bilhete diz: “Tenho 4 letras, começo com P e sou onde você estuda”. Qual palavra abre a pista?</p>
+      <div class="puzzle-grid single">
+        <button class="puzzle-choice" data-puzzle-answer="pátio">PÁTIO</button>
+        <button class="puzzle-choice" data-puzzle-answer="prova">PROVA</button>
+        <button class="puzzle-choice" data-puzzle-answer="pupo">PUPO</button>
+      </div>
+      <p id="puzzleFeedback" class="puzzle-feedback" aria-live="polite"></p>`;
+  } else {
+    content = `
+      <div class="puzzle-kicker">PISTA FINAL • CARTÃO</div>
+      <h3 id="modalTitle">Terminal do portão</h3>
+      <p>Digite o código formado pelas pistas: <strong>8</strong> (caderno), <strong>4</strong> (chave), <strong>2</strong> (energias no mapa) e <strong>1</strong> (último sinal).</p>
+      <div class="puzzle-input-row"><input id="codeInput" inputmode="numeric" maxlength="4" placeholder="••••" aria-label="Código de quatro dígitos"><button id="codeSubmit" class="primary-btn">VALIDAR</button></div>
+      <p id="puzzleFeedback" class="puzzle-feedback" aria-live="polite"></p>`;
+  }
+  $("#modalContent").innerHTML = content;
+  $("#modal").classList.remove("hidden");
+  state.modalOpen = true;
+  if (item.id === "notebook" || item.id === "key") {
+    document.querySelectorAll("[data-puzzle-answer]").forEach((button) => button.addEventListener("click", () => checkChoice(item, button.dataset.puzzleAnswer)));
+  } else {
+    $("#codeSubmit").addEventListener("click", () => checkCode(item));
+    $("#codeInput").addEventListener("keydown", (event) => { if (event.key === "Enter") checkCode(item); });
+    $("#codeInput").focus();
+  }
+}
+
+function showPuzzleFeedback(text, success = false) {
+  const feedback = $("#puzzleFeedback");
+  if (!feedback) return;
+  feedback.textContent = text;
+  feedback.className = `puzzle-feedback ${success ? "success" : "error"}`;
+  if (!success) {
+    $(".modal-card").classList.remove("shake");
+    window.setTimeout(() => $(".modal-card").classList.add("shake"), 10);
+  }
+}
+
+function checkChoice(item, answer) {
+  const correct = item.id === "notebook" ? answer === "8" : answer === "pátio";
+  if (!correct) {
+    showPuzzleFeedback("Essa pista não fecha. Tente outra opção.");
+    playTone(140, 0.12, "sawtooth", 0.04);
+    return;
+  }
+  showPuzzleFeedback("Pista resolvida! Item liberado.", true);
+  playCollectSound();
+  window.setTimeout(() => { closeModal(); completeItem(item); }, 450);
+}
+
+function checkCode(item) {
+  const input = $("#codeInput");
+  const code = input.value.trim();
+  if (code !== "8421") {
+    showPuzzleFeedback("Código incorreto. Releia as quatro pistas do terminal.");
+    playTone(140, 0.12, "sawtooth", 0.04);
+    input.select();
+    return;
+  }
+  showPuzzleFeedback("Código aceito! Cartão liberado.", true);
+  playCollectSound();
+  window.setTimeout(() => { closeModal(); completeItem(item); }, 450);
 }
 
 function validNeighbors(x, y) {
@@ -521,7 +620,7 @@ function gameLoop(timestamp) {
   if (!state.lastTime) state.lastTime = timestamp;
   const delta = Math.min(0.05, (timestamp - state.lastTime) / 1000);
   state.lastTime = timestamp;
-  if (state.running && !state.paused && !state.ended) {
+  if (state.running && !state.paused && !state.ended && !state.modalOpen) {
     state.elapsed += delta;
     const input = getInputDirection();
     state.player.moving = input.x !== 0 || input.y !== 0;
@@ -588,11 +687,13 @@ function loseGame(reason) {
 function showModal(title, text) {
   $("#modalContent").innerHTML = `<h3 id="modalTitle">${title}</h3><p>${text}</p><button class="primary-btn" id="modalAction">VOLTAR AO LABIRINTO</button>`;
   $("#modal").classList.remove("hidden");
+  state.modalOpen = true;
   $("#modalAction").addEventListener("click", closeModal, { once: true });
 }
 
 function closeModal() {
   $("#modal").classList.add("hidden");
+  state.modalOpen = false;
   room.focus();
 }
 
@@ -600,6 +701,7 @@ function handleKeyDown(event) {
   const key = event.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", " ", "e", "enter"].includes(key)) event.preventDefault();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) keys.add(key);
+  if (key === "escape" && state.modalOpen) closeModal();
   if (key === "e" || key === "enter") interactCurrent();
   if (key === " ") togglePause();
 }
