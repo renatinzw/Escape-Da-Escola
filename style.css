@@ -1128,3 +1128,36 @@ button {
 .topdown-status strong { color: #ffc857; }
 @keyframes nearbyPulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(255,200,87,.13), 0 0 12px rgba(255,200,87,.18); } 50% { box-shadow: 0 0 0 5px rgba(255,200,87,.22), 0 0 23px rgba(255,200,87,.35); } }
 @media (prefers-reduced-motion: reduce) { .topdown-player span, .topdown-object.is-nearby { animation: none; } }
+
+
+/* Móveis decorativos e obstáculos não interativos */
+.solid-obstacle { position: absolute; z-index: 3; pointer-events: none; border: 2px solid rgba(16,25,40,.8); border-radius: 7px; background: linear-gradient(145deg, #76533c, #392a2a); box-shadow: 0 5px 0 #101725, inset 0 2px rgba(255,255,255,.12), 0 8px 14px rgba(0,0,0,.28); }
+.solid-obstacle::after { content: ""; position: absolute; inset: 20% 8%; border: 1px solid rgba(255,255,255,.12); border-radius: 3px; }
+.obstacle-teacher-desk, .obstacle-computer-table, .obstacle-reading-table, .obstacle-lab-bench { background: linear-gradient(180deg, #956443 0 22%, #51362d 23% 78%, #2e2630 79%); }
+.obstacle-desk-row { background: repeating-linear-gradient(90deg, #8a5b3f 0 12%, #55382f 12% 18%, #8a5b3f 18% 30%, #302b34 30% 36%); }
+.obstacle-cabinet-furniture, .obstacle-bookcase, .obstacle-locker-row { border-color: #243c5c; background: repeating-linear-gradient(0deg, #405c78 0 14%, #243a57 15% 20%); }
+.obstacle-bookcase { background: repeating-linear-gradient(0deg, #6c4c3e 0 16%, #332832 17% 21%); }
+.obstacle-chair, .obstacle-stool { border-radius: 50%; background: radial-gradient(circle at 45% 35%, #b8794e 0 30%, #56392f 31% 70%, #2e2630 71%); }
+.obstacle-bench { background: linear-gradient(#8b5b3e 0 35%, #3f2c2b 36% 100%); }
+.obstacle-plant { border-radius: 45% 45% 30% 30%; background: radial-gradient(circle at 45% 30%, #46ab75 0 24%, #206447 25% 58%, #603d36 59%); }
+.obstacle-gate { border-color: #20d7a5; background: repeating-linear-gradient(90deg, #164f53 0 8%, #32b993 9% 12%, #164f53 13% 20%); box-shadow: 0 0 20px rgba(32,215,165,.32), 0 5px 0 #101725; }
+.board-wall, .formula-board, .equipment-wall, .corridor-window { pointer-events: none; }
+.topdown-object { z-index: 7; }
+.topdown-player { z-index: 10; }
+
+
+/* Layout de jogo em tela cheia */
+#app { width: 100%; max-width: none; }
+.game-screen.active { display: flex; flex-direction: column; min-height: 100vh; }
+.game-screen .topbar { flex: 0 0 auto; width: 100%; }
+.game-screen .game-layout { width: 100%; max-width: none; flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(210px, 18vw) minmax(0, 1fr); }
+.game-screen .sidebar { min-width: 0; }
+.game-screen .room-wrap { min-width: 0; display: flex; flex-direction: column; }
+.game-screen .room { flex: 1 1 auto; min-height: 0; }
+.game-screen .topdown-map { min-height: min(64vh, 650px); height: clamp(420px, 66vh, 650px); }
+@media (max-width: 800px) {
+  .game-screen .game-layout { display: flex; flex-direction: column; }
+  .game-screen .sidebar { flex: 0 0 auto; }
+  .game-screen .room-wrap { flex: 1 1 auto; }
+  .game-screen .topdown-map { height: clamp(340px, 58vh, 520px); min-height: 340px; }
+}
