@@ -2428,7 +2428,7 @@ function escape2DRoomHTML(id) {
         <div class="topdown-floor-lines"></div>
         ${escape2DPropHTML(id)}
         ${objects.map(([action, icon, name, x, y, description]) => `
-          <button class="topdown-object ${solvedActions.has(action) ? "is-solved" : ""}" data-action="${action}" style="left:${x}%;top:${y}%;" title="${description}">
+          <button class="topdown-object ${solvedActions.has(action) ? "is-solved" : ""}" data-action="${action}" style="left:${x}%;top:${y}%;" title="${description}" aria-label="${name}. ${description}. Aproxime-se para investigar." aria-keyshortcuts="Enter" disabled>
             <span>${icon}</span><small>${name}</small>
           </button>
         `).join("")}
@@ -2442,7 +2442,7 @@ function escape2DRoomHTML(id) {
         <button data-move="up" aria-label="Andar para cima">▲</button>
         <div><button data-move="left" aria-label="Andar para esquerda">◀</button><button data-move="down" aria-label="Andar para baixo">▼</button><button data-move="right" aria-label="Andar para direita">▶</button></div>
       </div>
-      <div class="topdown-status"><strong>Objetivo:</strong> explore a sala e clique nos objetos para descobrir as pistas.</div>
+      <div class="topdown-status" id="topdownStatus" role="status" aria-live="polite"><strong>Objetivo:</strong> aproxime-se de um objeto; quando aparecer ENTER, pressione Enter para investigar.</div>
     </div>
   `;
 }
@@ -2495,7 +2495,7 @@ function updateEscape2DPlayer(timestamp) {
     if (escape2DKeys.down) dy += 1;
     if (dx || dy) {
       const length = Math.hypot(dx, dy) || 1;
-      const speed = 0.055 * Math.min(2, (timestamp - escape2DLastFrame) / 16.67 || 1);
+      const speed = 0.65 * Math.min(2, (timestamp - escape2DLastFrame) / 16.67 || 1);
       player.x = Math.max(8, Math.min(92, player.x + (dx / length) * speed));
       player.y = Math.max(12, Math.min(88, player.y + (dy / length) * speed));
       element.style.left = `${player.x}%`;
@@ -2507,3 +2507,101 @@ function updateEscape2DPlayer(timestamp) {
 }
 
 window.requestAnimationFrame(updateEscape2DPlayer);
+
+
+/* =========================================================
+   INTERAÇÃO POR PROXIMIDADE + ENTER
+========================================================= */
+
+const ESCAPE_INTERACTION_DISTANCE = 15;
+let escapeNearbyAction = null;
+let escapeNearbyName = "";
+let escapeNearbyDistance = Infinity;
+
+function escapeModalIsOpen() {
+  const modalElement = $("#modal");
+  return Boolean(modalElement && !modalElement.classList.contains("hidden"));
+}
+
+function escapeGetNearbyObject() {
+  const player = escape2DPositions[state.room];
+  if (!player) return null;
+  let closest = null;
+  document.querySelectorAll(".topdown-object").forEach((button) => {
+    const objectX = parseFloat(button.style.left);
+    const objectY = parseFloat(button.style.top);
+    const distance = Math.hypot(player.x - objectX, player.y - objectY);
+    if (!closest || distance < closest.distance) {
+      closest = { button, distance };
+    }
+  });
+  return closest;
+}
+
+function escapeUpdateObjectFocus() {
+  const buttons = [...document.querySelectorAll(".topdown-object")];
+  const closest = escapeGetNearbyObject();
+  const nearby = closest && closest.distance <= ESCAPE_INTERACTION_DISTANCE ? closest.button : null;
+  escapeNearbyAction = nearby ? nearby.dataset.action : null;
+  escapeNearbyName = nearby ? nearby.querySelector("small")?.textContent || "objeto" : "";
+  escapeNearbyDistance = closest ? closest.distance : Infinity;
+
+  buttons.forEach((button) => {
+    const isNearby = button === nearby;
+    button.disabled = !isNearby;
+    button.tabIndex = isNearby ? 0 : -1;
+    button.setAttribute("aria-disabled", String(!isNearby));
+    button.classList.toggle("is-nearby", isNearby);
+  });
+
+  const status = $("#topdownStatus");
+  if (!status) return;
+  if (nearby) {
+    status.innerHTML = `<strong>${escapeNearbyName} ao alcance.</strong> Pressione Enter ou clique no objeto para abrir o puzzle.`;
+  } else if (closest) {
+    status.innerHTML = `<strong>Você está a ${Math.ceil(closest.distance)} passos de ${closest.button.querySelector("small")?.textContent || "um objeto"}.</strong> Caminhe até ele para investigar.`;
+  } else {
+    status.innerHTML = "<strong>Objetivo:</strong> explore a sala e descubra as pistas.";
+  }
+}
+
+function escapeOpenNearbyObject() {
+  if (escapeModalIsOpen() || !escapeNearbyAction) return false;
+  playEscapeSound("click");
+  actions(escapeNearbyAction);
+  return true;
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !escapeModalIsOpen()) {
+    if (escapeOpenNearbyObject()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+});
+
+function escapeBindProximityClicks() {
+  document.querySelectorAll(".topdown-object").forEach((button) => {
+    button.onclick = (event) => {
+      if (button.disabled || !button.classList.contains("is-nearby")) {
+        event.preventDefault();
+        return;
+      }
+      actions(button.dataset.action);
+    };
+  });
+  escapeUpdateObjectFocus();
+}
+
+const escape2DOriginalBindObjectsWithProximity = bindObjects;
+bindObjects = function() {
+  escape2DOriginalBindObjectsWithProximity();
+  escapeBindProximityClicks();
+};
+
+function escapeProximityLoop() {
+  if (!escapeModalIsOpen()) escapeUpdateObjectFocus();
+  window.requestAnimationFrame(escapeProximityLoop);
+}
+window.requestAnimationFrame(escapeProximityLoop);
