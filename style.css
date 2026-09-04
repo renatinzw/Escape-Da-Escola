@@ -1161,3 +1161,20 @@ button {
   .game-screen .room-wrap { flex: 1 1 auto; }
   .game-screen .topdown-map { height: clamp(340px, 58vh, 520px); min-height: 340px; }
 }
+
+
+/* Inspetor: presença de fase, não objeto investigável */
+.escape-inspector { position: absolute; z-index: 8; display: grid; place-items: center; width: 60px; height: 72px; transform: translate(-50%, -50%); pointer-events: none; filter: drop-shadow(0 6px 5px rgba(0,0,0,.45)); transition: left .12s linear; }
+.escape-inspector span { display: grid; place-items: center; width: 43px; height: 43px; border: 3px solid #ff6874; border-radius: 50%; background: #3b1e35; font-size: 25px; box-shadow: 0 0 20px rgba(255,104,116,.42); animation: inspectorLook 1.2s infinite alternate ease-in-out; }
+.escape-inspector small { margin-top: 4px; padding: 2px 5px; border-radius: 4px; color: #fff; background: #d84e61; font-size: 8px; font-weight: 900; letter-spacing: .5px; }
+@keyframes inspectorLook { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { .escape-inspector span { animation: none; } }
+
+
+/* Inventário funcional */
+#inventory .item { appearance: none; width: 100%; min-height: 58px; display: grid; place-items: center; padding: 6px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--panel2); }
+#inventory .item.collected { cursor: pointer; border-color: rgba(255,200,87,.55); background: linear-gradient(145deg, rgba(255,200,87,.12), rgba(32,215,165,.08)); }
+#inventory .item.collected:hover, #inventory .item.collected:focus-visible { border-color: #20d7a5; box-shadow: 0 0 0 3px rgba(32,215,165,.16); outline: none; transform: translateY(-1px); }
+#inventory .item.empty { cursor: not-allowed; opacity: .55; }
+#inventory .item span { font-size: 25px; }
+#inventory .item small { color: #c8d4e8; font-size: 9px; font-weight: 800; }
