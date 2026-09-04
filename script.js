@@ -2496,8 +2496,10 @@ function updateEscape2DPlayer(timestamp) {
     if (dx || dy) {
       const length = Math.hypot(dx, dy) || 1;
       const speed = 0.65 * Math.min(2, (timestamp - escape2DLastFrame) / 16.67 || 1);
-      player.x = Math.max(8, Math.min(92, player.x + (dx / length) * speed));
-      player.y = Math.max(12, Math.min(88, player.y + (dy / length) * speed));
+      const nextX = Math.max(8, Math.min(92, player.x + (dx / length) * speed));
+      const nextY = Math.max(12, Math.min(88, player.y + (dy / length) * speed));
+      if (!escape2DIsBlocked(nextX, player.y)) player.x = nextX;
+      if (!escape2DIsBlocked(player.x, nextY)) player.y = nextY;
       element.style.left = `${player.x}%`;
       element.style.top = `${player.y}%`;
     }
@@ -2605,3 +2607,73 @@ function escapeProximityLoop() {
   window.requestAnimationFrame(escapeProximityLoop);
 }
 window.requestAnimationFrame(escapeProximityLoop);
+
+
+/* =========================================================
+   CENÁRIO ESCOLAR E OBSTÁCULOS SÓLIDOS
+========================================================= */
+
+const escape2DObstacles = {
+  classroom: [
+    { type: "teacher-desk", x: 29, y: 24, w: 18, h: 9, label: "Mesa do professor" },
+    { type: "desk-row", x: 26, y: 44, w: 22, h: 11, label: "Mesas e cadeiras" },
+    { type: "desk-row", x: 56, y: 44, w: 22, h: 11, label: "Mesas e cadeiras" },
+    { type: "cabinet-furniture", x: 71, y: 70, w: 14, h: 11, label: "Armário" }
+  ],
+  lab: [
+    { type: "computer-table", x: 39, y: 42, w: 47, h: 12, label: "Bancada de computadores" },
+    { type: "chair", x: 45, y: 61, w: 8, h: 7, label: "Cadeira" },
+    { type: "chair", x: 63, y: 61, w: 8, h: 7, label: "Cadeira" },
+    { type: "cabinet-furniture", x: 12, y: 70, w: 12, h: 16, label: "Armário de equipamentos" }
+  ],
+  library: [
+    { type: "bookcase", x: 9, y: 18, w: 12, h: 58, label: "Estante" },
+    { type: "bookcase", x: 79, y: 18, w: 12, h: 58, label: "Estante" },
+    { type: "reading-table", x: 54, y: 53, w: 25, h: 12, label: "Mesa de leitura" },
+    { type: "chair", x: 60, y: 70, w: 8, h: 7, label: "Cadeira" }
+  ],
+  science: [
+    { type: "lab-bench", x: 12, y: 45, w: 38, h: 13, label: "Bancada de laboratório" },
+    { type: "lab-bench", x: 56, y: 45, w: 32, h: 13, label: "Bancada de laboratório" },
+    { type: "stool", x: 24, y: 66, w: 8, h: 7, label: "Banqueta" },
+    { type: "stool", x: 69, y: 66, w: 8, h: 7, label: "Banqueta" }
+  ],
+  corridor: [
+    { type: "locker-row", x: 7, y: 18, w: 86, h: 12, label: "Armários" },
+    { type: "bench", x: 30, y: 58, w: 27, h: 9, label: "Banco" },
+    { type: "plant", x: 80, y: 67, w: 9, h: 10, label: "Vaso de planta" }
+  ],
+  exit: [
+    { type: "gate", x: 34, y: 35, w: 34, h: 12, label: "Portão eletrônico" }
+  ]
+};
+
+function escape2DObstacleHTML(id) {
+  return (escape2DObstacles[id] || []).map((obstacle) => `
+    <div class="solid-obstacle obstacle-${obstacle.type}" aria-label="${obstacle.label}" title="${obstacle.label}"
+      style="left:${obstacle.x}%;top:${obstacle.y}%;width:${obstacle.w}%;height:${obstacle.h}%;"></div>
+  `).join("");
+}
+
+escape2DPropHTML = function(id) {
+  const props = {
+    classroom: '<div class="room-prop window left"></div><div class="room-prop window right"></div><div class="room-prop board-wall"></div>',
+    lab: '<div class="room-prop window left"></div><div class="room-prop equipment-wall"></div>',
+    library: '<div class="room-prop window left"></div><div class="room-prop window right"></div>',
+    science: '<div class="room-prop window left"></div><div class="room-prop formula-board"></div>',
+    corridor: '<div class="room-prop corridor-window"></div>',
+    exit: '<div class="room-prop exit-light left"></div><div class="room-prop exit-light right"></div>'
+  };
+  return (props[id] || "") + escape2DObstacleHTML(id);
+};
+
+
+function escape2DIsBlocked(x, y) {
+  const playerRadius = 3.4;
+  return (escape2DObstacles[state.room] || []).some((obstacle) => {
+    return x + playerRadius > obstacle.x &&
+      x - playerRadius < obstacle.x + obstacle.w &&
+      y + playerRadius > obstacle.y &&
+      y - playerRadius < obstacle.y + obstacle.h;
+  });
+}
