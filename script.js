@@ -1,1951 +1,1180 @@
-/* =========================================================
-   ESCAPE DA ESCOLA
-   Jogo feito somente com HTML + CSS + JavaScript + Canvas
-   SEM THREE.JS
-========================================================= */
-
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-const startScreen = document.getElementById("startScreen");
-const howScreen = document.getElementById("howScreen");
-const game = document.getElementById("game");
-
-const startButton = document.getElementById("startButton");
-const howButton = document.getElementById("howButton");
-const backButton = document.getElementById("backButton");
-
-const objectiveElement = document.getElementById("objective");
-const timerElement = document.getElementById("timer");
-const promptElement = document.getElementById("interactionPrompt");
-const messageElement = document.getElementById("message");
-
-const inventoryElement = document.getElementById("inventoryItems");
-
-const joystick = document.getElementById("joystick");
-const joystickStick = document.getElementById("joystickStick");
-
-const interactButton = document.getElementById("interactButton");
-const runButton = document.getElementById("runButton");
-
-const codeModal = document.getElementById("codeModal");
-const codeInput = document.getElementById("codeInput");
-
-const openSafeButton = document.getElementById("openSafeButton");
-const cancelCodeButton = document.getElementById("cancelCodeButton");
-
-const winScreen = document.getElementById("winScreen");
-const loseScreen = document.getElementById("loseScreen");
-
-const restartWin = document.getElementById("restartWin");
-const restartLose = document.getElementById("restartLose");
-
-
-/* =========================================================
-   CANVAS
-========================================================= */
-
-let width = window.innerWidth;
-let height = window.innerHeight;
-
-function resizeCanvas() {
-
-  width = window.innerWidth;
-  height = window.innerHeight;
-
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-
-  canvas.width = width * pixelRatio;
-  canvas.height = height * pixelRatio;
-
-  canvas.style.width = width + "px";
-  canvas.style.height = height + "px";
-
-  ctx.setTransform(
-    pixelRatio,
-    0,
-    0,
-    pixelRatio,
-    0,
-    0
-  );
+* {
+  box-sizing: border-box;
 }
 
-window.addEventListener("resize", resizeCanvas);
+:root {
+  --bg: #080b14;
+  --panel: #111827;
+  --panel2: #172033;
+  --line: #2a3852;
+  --text: #edf3ff;
+  --muted: #9eacc5;
+  --accent: #7c5cff;
+  --accent2: #20d7a5;
+  --danger: #ff5f6d;
+  --gold: #ffc857;
+  --shadow: 0 20px 60px rgba(0,0,0,.45);
+}
 
-resizeCanvas();
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
 
+button,
+input {
+  font: inherit;
+}
 
-/* =========================================================
-   ESTADO DO JOGO
-========================================================= */
+button {
+  cursor: pointer;
+}
 
-let playing = false;
-let finished = false;
+.screen {
+  display: none;
+  min-height: 100vh;
+}
 
-let timeLeft = 15 * 60;
-
-let player = {
-  x: 0,
-  y: 12,
-  angle: Math.PI
-};
-
-let joystickX = 0;
-let joystickY = 0;
-
-let running = false;
-
-const keys = {};
-
-
-/* =========================================================
-   MAPA
-========================================================= */
-
-const map = {
-
-  width: 30,
-  height: 34,
-
-  walls: [
-
-    // paredes externas
-    {
-      x: 0,
-      y: -17,
-      width: 30,
-      height: 1
-    },
-
-    {
-      x: -15,
-      y: 0,
-      width: 1,
-      height: 34
-    },
-
-    {
-      x: 15,
-      y: 0,
-      width: 1,
-      height: 34
-    },
-
-    {
-      x: 0,
-      y: 17,
-      width: 30,
-      height: 1
-    },
-
-    // parede interna esquerda
-    {
-      x: -7,
-      y: -7,
-      width: 1,
-      height: 13
-    },
-
-    // parede interna direita
-    {
-      x: 7,
-      y: 7,
-      width: 1,
-      height: 13
-    }
-
-  ]
-
-};
-
-
-/* =========================================================
-   OBJETOS
-========================================================= */
-
-const objects = [
-
-  {
-    type: "clue1",
-    x: -10,
-    y: -10,
-    color: "#4c79ff",
-    name: "Pista azul",
-    active: true
-  },
-
-  {
-    type: "key",
-    x: 6,
-    y: -11,
-    color: "#ffd447",
-    name: "Chave",
-    active: true
-  },
-
-  {
-    type: "clue2",
-    x: 11,
-    y: -8,
-    color: "#51df87",
-    name: "Pista 2",
-    active: true
-  },
-
-  {
-    type: "final",
-    x: -9,
-    y: 10,
-    color: "#eeeeee",
-    name: "Pista final",
-    active: true
-  },
-
-  {
-    type: "safe",
-    x: 10,
-    y: 10,
-    color: "#df5368",
-    name: "Cofre",
-    active: true
-  }
-
-];
-
-
-/* =========================================================
-   INVENTÁRIO
-========================================================= */
-
-const inventory = [];
-
-function addInventory(name) {
-
-  if (inventory.includes(name)) {
-    return;
-  }
-
-  inventory.push(name);
-
-  const item = document.createElement("div");
-
-  item.className = "inventory-item";
-
-  item.textContent = name;
-
-  inventoryElement.appendChild(item);
+.screen.active {
+  display: flex;
 }
 
 
-/* =========================================================
-   OBJETIVO
-========================================================= */
+/* TELA INICIAL */
 
-function setObjective(text) {
+#startScreen,
+#winScreen,
+#loseScreen,
+#howScreen {
 
-  objectiveElement.textContent = text;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(124,92,255,.18),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(32,215,165,.09),
+      transparent 35%
+    ),
+    var(--bg);
+}
+
+.start-card,
+.result-card,
+.panel {
+
+  width: min(680px,100%);
+
+  background: rgba(17,24,39,.94);
+
+  border: 1px solid var(--line);
+
+  border-radius: 24px;
+
+  box-shadow: var(--shadow);
+
+  padding: 42px;
+
+  text-align: center;
+
+  position: relative;
+}
+
+.start-card h1 {
+
+  font-size: clamp(46px,10vw,90px);
+
+  line-height: .9;
+
+  margin: 12px 0 4px;
+
+  letter-spacing: -4px;
+}
+
+.start-card h1 span {
+  color: var(--accent);
+}
+
+.subtitle {
+
+  font-size: 22px;
+
+  color: var(--gold);
+
+  letter-spacing: 5px;
+
+  text-transform: uppercase;
+
+  margin: 0 0 25px;
+}
+
+.eyebrow {
+
+  font-size: 12px;
+
+  letter-spacing: 2px;
+
+  color: var(--muted);
+
+  font-weight: 800;
+}
+
+.intro {
+
+  color: #c4cde0;
+
+  line-height: 1.7;
+
+  max-width: 520px;
+
+  margin: 0 auto 28px;
 }
 
 
-/* =========================================================
-   MENSAGEM
-========================================================= */
+/* BOTÕES */
 
-let messageTimeout;
+.primary-btn,
+.ghost-btn,
+.hud-btn,
+.map-btn,
+.object-btn {
 
-function showMessage(text) {
+  border: 1px solid var(--line);
 
-  messageElement.textContent = text;
+  border-radius: 12px;
 
-  messageElement.style.opacity = "1";
+  color: var(--text);
 
-  clearTimeout(messageTimeout);
+  background: var(--panel2);
 
-  messageTimeout = setTimeout(() => {
+  padding: 13px 18px;
 
-    messageElement.style.opacity = "0";
+  font-weight: 800;
 
-  }, 2800);
+  transition: .2s;
+}
 
+.primary-btn {
+
+  background: var(--accent);
+
+  border-color: transparent;
+
+  width: 100%;
+
+  font-size: 15px;
+}
+
+.primary-btn:hover {
+
+  filter: brightness(1.1);
+
+  transform: translateY(-1px);
+}
+
+.ghost-btn {
+
+  background: transparent;
+
+  margin-top: 10px;
+
+  width: 100%;
+}
+
+.credits {
+
+  font-size: 11px;
+
+  color: #66738d;
+
+  margin-top: 28px;
 }
 
 
-/* =========================================================
-   COLISÃO
-========================================================= */
+/* COMO JOGAR */
 
-function collision(x, y) {
+.rules {
 
-  const radius = 0.45;
+  text-align: left;
 
-  if (
-    x < -14.3 ||
-    x > 14.3 ||
-    y < -16.3 ||
-    y > 16.3
-  ) {
+  color: #c8d1e2;
 
-    return true;
-  }
+  line-height: 1.8;
 
+  padding-left: 22px;
+}
 
-  for (const wall of map.walls) {
+.narrow {
+  max-width: 550px;
+}
 
-    if (
-      x > wall.x - wall.width / 2 - radius &&
-      x < wall.x + wall.width / 2 + radius &&
-      y > wall.y - wall.height / 2 - radius &&
-      y < wall.y + wall.height / 2 + radius
-    ) {
+.close-btn {
 
-      return true;
-    }
+  position: absolute;
 
-  }
+  right: 14px;
 
-  return false;
+  top: 12px;
+
+  background: none;
+
+  border: 0;
+
+  color: var(--muted);
+
+  font-size: 30px;
+
+  line-height: 1;
 }
 
 
-/* =========================================================
-   DISTÂNCIA
-========================================================= */
+/* TOPO */
 
-function distance(a, b) {
+.topbar {
 
-  return Math.sqrt(
-    Math.pow(a.x - b.x, 2) +
-    Math.pow(a.y - b.y, 2)
-  );
+  height: 74px;
 
+  background: #0c111e;
+
+  border-bottom: 1px solid var(--line);
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  padding: 0 20px;
+
+  gap: 20px;
+}
+
+.game-title {
+
+  font-weight: 900;
+
+  letter-spacing: 2px;
+
+  color: var(--accent);
+}
+
+.location {
+
+  color: var(--muted);
+
+  font-size: 13px;
+
+  margin-top: 3px;
+}
+
+.hud {
+
+  display: flex;
+
+  gap: 8px;
+
+  align-items: center;
+}
+
+.hud-box,
+.hud-btn {
+
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 0 13px;
+
+  border-radius: 10px;
+
+  border: 1px solid var(--line);
+
+  background: #121a2a;
+
+  color: var(--text);
+}
+
+.hud-btn {
+
+  font-size: 12px;
 }
 
 
-/* =========================================================
-   OBJETO MAIS PRÓXIMO
-========================================================= */
+/* JOGO */
 
-function getNearestObject() {
+.game-layout {
 
-  let nearest = null;
+  height: calc(100vh - 74px);
 
-  let nearestDistance = 2;
+  display: grid;
 
-  for (const object of objects) {
+  grid-template-columns: 235px 1fr;
+}
 
-    if (!object.active) {
-      continue;
-    }
+.sidebar {
 
-    const d = distance(player, object);
+  background: #0d1320;
 
-    if (d < nearestDistance) {
+  border-right: 1px solid var(--line);
 
-      nearest = object;
+  padding: 18px;
 
-      nearestDistance = d;
+  overflow: auto;
+}
 
-    }
+.side-title {
 
-  }
+  font-size: 11px;
 
-  return nearest;
+  letter-spacing: 2px;
+
+  color: #70809d;
+
+  font-weight: 900;
+
+  margin: 4px 0 10px;
+}
+
+.map-buttons {
+
+  display: grid;
+
+  gap: 7px;
+}
+
+.map-btn {
+
+  width: 100%;
+
+  text-align: left;
+
+  padding: 10px 11px;
+
+  font-size: 12px;
+}
+
+.map-btn.active {
+
+  border-color: var(--accent);
+
+  background: rgba(124,92,255,.15);
+}
+
+.map-btn.locked {
+
+  opacity: .45;
 }
 
 
-/* =========================================================
-   INTERAÇÃO
-========================================================= */
+/* INVENTÁRIO */
 
-function interact() {
+.inventory-title {
+  margin-top: 25px;
+}
 
-  if (!playing || finished) {
-    return;
-  }
+.inventory {
 
-  const object = getNearestObject();
+  display: grid;
 
-  if (!object) {
+  grid-template-columns: repeat(3,1fr);
 
-    showMessage(
-      "Aproxime-se de um objeto brilhante."
-    );
+  gap: 7px;
+}
 
-    return;
-  }
+.item {
 
+  aspect-ratio: 1;
 
-  /* COFRE */
+  border: 1px solid var(--line);
 
-  if (object.type === "safe") {
+  background: #121a2a;
 
-    if (!inventory.includes("Chave")) {
+  border-radius: 10px;
 
-      showMessage(
-        "🔒 Você precisa encontrar a chave primeiro."
-      );
+  display: grid;
 
-      return;
-    }
+  place-items: center;
 
-    codeModal.classList.remove("hidden");
+  font-size: 23px;
 
-    codeInput.value = "";
+  position: relative;
+}
 
-    setTimeout(() => {
+.item small {
 
-      codeInput.focus();
+  position: absolute;
 
-    }, 100);
+  bottom: 2px;
 
-    return;
-  }
+  left: 0;
 
+  right: 0;
 
-  /* PISTA 1 */
+  text-align: center;
 
-  if (object.type === "clue1") {
+  font-size: 8px;
 
-    object.active = false;
+  color: var(--muted);
 
-    addInventory("Pista 1");
-
-    setObjective(
-      "Encontre a chave azul."
-    );
-
-    showMessage(
-      "📄 A pista diz: procure a chave azul."
-    );
-
-    return;
-  }
-
-
-  /* CHAVE */
-
-  if (object.type === "key") {
-
-    object.active = false;
-
-    addInventory("Chave");
-
-    setObjective(
-      "Encontre a pista nos armários."
-    );
-
-    showMessage(
-      "🔑 Você encontrou a chave!"
-    );
-
-    return;
-  }
-
-
-  /* PISTA 2 */
-
-  if (object.type === "clue2") {
-
-    object.active = false;
-
-    addInventory("Pista 2");
-
-    setObjective(
-      "Encontre a pista final."
-    );
-
-    showMessage(
-      "📝 A pista revela o número 42."
-    );
-
-    return;
-  }
-
-
-  /* PISTA FINAL */
-
-  if (object.type === "final") {
-
-    object.active = false;
-
-    addInventory("Pista final");
-
-    setObjective(
-      "Vá até o cofre e use o código."
-    );
-
-    showMessage(
-      "📜 A pista final revela 71. Código: 4271."
-    );
-
-    return;
-  }
-
+  overflow: hidden;
 }
 
 
-/* =========================================================
-   CÓDIGO DO COFRE
-========================================================= */
+/* OBJETIVO */
 
-function openSafe() {
+.objective {
 
-  const code = codeInput.value.trim();
+  margin-top: 25px;
 
-  if (code === "4271") {
+  border: 1px solid var(--line);
 
-    codeModal.classList.add("hidden");
+  border-radius: 12px;
 
-    playing = false;
+  padding: 12px;
 
-    finished = true;
+  background: #111a2a;
+}
 
-    winScreen.classList.remove("hidden");
+.objective small {
 
-    return;
-  }
+  color: var(--gold);
 
+  font-size: 9px;
 
-  showMessage(
-    "❌ Código incorreto."
-  );
+  font-weight: 900;
 
-  codeInput.select();
+  letter-spacing: 1px;
+}
+
+.objective p {
+
+  font-size: 12px;
+
+  line-height: 1.5;
+
+  color: #b7c3d9;
+
+  margin: 7px 0 0;
 }
 
 
-openSafeButton.addEventListener(
-  "click",
-  openSafe
-);
+/* SALAS */
 
+.room-wrap {
 
-cancelCodeButton.addEventListener(
-  "click",
-  () => {
+  min-width: 0;
 
-    codeModal.classList.add("hidden");
+  display: flex;
 
-  }
-);
+  flex-direction: column;
+}
 
+.room {
 
-codeInput.addEventListener(
-  "keydown",
-  event => {
+  flex: 1;
 
-    if (event.key === "Enter") {
+  overflow: auto;
 
-      openSafe();
+  position: relative;
 
-    }
+  padding: 28px;
 
-  }
-);
+  background: #0a0f19;
+}
 
+.scene {
 
-/* =========================================================
-   MOVIMENTO
-========================================================= */
+  min-height: 100%;
 
-function updateMovement(delta) {
+  max-width: 1050px;
 
-  let forward = 0;
-  let strafe = 0;
+  margin: auto;
 
+  border: 1px solid #26354e;
 
-  if (keys["w"]) {
-    forward += 1;
-  }
+  border-radius: 18px;
 
-  if (keys["s"]) {
-    forward -= 1;
-  }
+  overflow: hidden;
 
-  if (keys["a"]) {
-    strafe -= 1;
-  }
+  background: #111927;
 
-  if (keys["d"]) {
-    strafe += 1;
-  }
+  box-shadow: var(--shadow);
+}
 
+.scene-header {
 
-  forward += -joystickY;
-  strafe += joystickX;
+  padding: 20px 24px;
 
+  border-bottom: 1px solid #26354e;
 
-  const magnitude = Math.sqrt(
-    forward * forward +
-    strafe * strafe
-  );
+  background: rgba(0,0,0,.14);
+}
 
+.scene-header h2 {
 
-  if (magnitude > 1) {
+  margin: 0;
 
-    forward /= magnitude;
-    strafe /= magnitude;
+  font-size: 25px;
+}
 
-  }
+.scene-header p {
 
+  margin: 5px 0 0;
 
-  let speed = running ? 5.5 : 3.8;
+  color: var(--muted);
 
-  speed *= delta;
+  font-size: 13px;
+}
 
+.scene-body {
 
-  const sin = Math.sin(player.angle);
-  const cos = Math.cos(player.angle);
+  padding: 24px;
 
+  display: grid;
 
-  const moveX =
-    (sin * forward +
-    cos * strafe) *
-    speed;
+  grid-template-columns:
+    repeat(auto-fit,minmax(180px,1fr));
 
+  gap: 15px;
 
-  const moveY =
-    (cos * forward -
-    sin * strafe) *
-    speed;
-
-
-  const newX = player.x + moveX;
-  const newY = player.y + moveY;
-
-
-  if (!collision(newX, player.y)) {
-
-    player.x = newX;
-
-  }
-
-
-  if (!collision(player.x, newY)) {
-
-    player.y = newY;
-
-  }
-
+  align-content: start;
 }
 
 
-/* =========================================================
-   DESENHO 3D FAKE / RAYCASTING
-========================================================= */
+/* OBJETOS */
 
-const FOV = Math.PI / 3;
+.object-btn {
 
-const RAYS = 180;
+  min-height: 120px;
 
-function normalizeAngle(angle) {
+  text-align: left;
 
-  while (angle < -Math.PI) {
-    angle += Math.PI * 2;
-  }
+  background:
+    linear-gradient(
+      145deg,
+      #182237,
+      #111827
+    );
 
-  while (angle > Math.PI) {
-    angle -= Math.PI * 2;
-  }
+  display: flex;
 
-  return angle;
+  flex-direction: column;
 
+  justify-content: space-between;
+}
+
+.object-btn:hover {
+
+  border-color: var(--accent);
+
+  transform: translateY(-2px);
+}
+
+.object-btn .emoji {
+
+  font-size: 34px;
+}
+
+.object-btn strong {
+
+  font-size: 14px;
+}
+
+.object-btn span {
+
+  font-size: 11px;
+
+  color: var(--muted);
+}
+
+.locked-card {
+
+  grid-column: 1/-1;
+
+  padding: 18px;
+
+  border: 1px dashed #34435f;
+
+  border-radius: 12px;
+
+  color: #a9b7ce;
+
+  text-align: center;
 }
 
 
-/* =========================================================
-   RAIO
-========================================================= */
+/* BARRA */
 
-function castRay(angle) {
+.statusbar {
 
-  const step = 0.035;
+  height: 42px;
 
-  let x = player.x;
-  let y = player.y;
+  border-top: 1px solid var(--line);
 
-  for (
-    let distance = 0;
-    distance < 30;
-    distance += step
-  ) {
+  background: #0d1320;
 
-    x += Math.sin(angle) * step;
-    y += Math.cos(angle) * step;
+  display: flex;
 
+  justify-content: space-between;
 
-    if (collision(x, y)) {
+  align-items: center;
 
-      return distance;
+  padding: 0 15px;
 
-    }
+  font-size: 11px;
 
-  }
-
-
-  return 30;
+  color: var(--muted);
 }
 
 
-/* =========================================================
-   PROJEÇÃO DOS OBJETOS
-========================================================= */
+/* MODAL */
 
-function projectObject(object) {
+.modal {
 
-  if (!object.active) {
-    return null;
-  }
+  position: fixed;
 
+  inset: 0;
 
-  const dx =
-    object.x - player.x;
+  background: rgba(0,0,0,.72);
 
-  const dy =
-    object.y - player.y;
+  display: grid;
 
+  place-items: center;
 
-  const distanceValue =
-    Math.sqrt(
-      dx * dx +
-      dy * dy
-    );
+  padding: 18px;
 
+  z-index: 20;
+}
 
-  let angle =
-    Math.atan2(
-      dx,
-      dy
-    );
+.modal.hidden {
+  display: none;
+}
 
+.modal-card {
 
-  angle =
-    normalizeAngle(
-      angle - player.angle
-    );
+  width: min(580px,100%);
 
+  max-height: 90vh;
 
-  if (
-    Math.abs(angle) >
-    FOV / 2
-  ) {
+  overflow: auto;
 
-    return null;
+  background: #111827;
 
-  }
+  border: 1px solid var(--line);
 
+  border-radius: 20px;
 
-  const screenX =
-    width / 2 +
-    (angle / (FOV / 2)) *
-    (width / 2);
+  padding: 28px;
 
+  position: relative;
 
-  const size =
-    Math.min(
-      height,
-      500 / Math.max(distanceValue, 0.2)
-    );
+  box-shadow: var(--shadow);
+}
 
+.modal-card h3 {
 
-  const screenY =
-    height / 2 -
-    size * 0.1;
+  font-size: 23px;
 
+  margin: 0 0 8px;
+}
 
-  return {
-    x: screenX,
-    y: screenY,
-    size,
-    distance: distanceValue
-  };
+.modal-card p {
 
+  color: #bac6da;
+
+  line-height: 1.65;
+}
+
+.puzzle {
+
+  display: grid;
+
+  gap: 12px;
+
+  margin-top: 20px;
+}
+
+.puzzle input {
+
+  width: 100%;
+
+  padding: 13px;
+
+  border-radius: 10px;
+
+  border: 1px solid var(--line);
+
+  background: #0b1220;
+
+  color: #fff;
+
+  outline: none;
+}
+
+.puzzle input:focus {
+
+  border-color: var(--accent);
+}
+
+.choice-grid {
+
+  display: grid;
+
+  grid-template-columns: repeat(2,1fr);
+
+  gap: 8px;
+}
+
+.choice {
+
+  padding: 14px;
+
+  border: 1px solid var(--line);
+
+  background: #151f31;
+
+  color: #fff;
+
+  border-radius: 10px;
+
+  text-align: left;
+}
+
+.choice:hover {
+
+  border-color: var(--accent);
+}
+
+.sequence {
+
+  font-size: 27px;
+
+  text-align: center;
+
+  letter-spacing: 7px;
+
+  padding: 16px;
+
+  background: #0c1320;
+
+  border-radius: 12px;
+}
+
+.clue {
+
+  padding: 13px;
+
+  border-left: 3px solid var(--gold);
+
+  background: #151d2d;
+
+  color: #c4cede;
+
+  font-size: 13px;
+}
+
+.code-display {
+
+  font-size: 31px;
+
+  letter-spacing: 10px;
+
+  text-align: center;
+
+  background: #0b1220;
+
+  padding: 15px;
+
+  border-radius: 12px;
+
+  font-variant-numeric: tabular-nums;
+}
+
+.success {
+
+  color: var(--accent2) !important;
+
+  font-weight: 800;
+}
+
+.error {
+
+  color: var(--danger) !important;
+
+  font-weight: 800;
 }
 
 
-/* =========================================================
-   DESENHAR CÉU
-========================================================= */
+/* RESULTADO */
 
-function drawSky() {
+.result-icon {
 
-  const sky = ctx.createLinearGradient(
-    0,
-    0,
-    0,
-    height / 2
-  );
+  font-size: 60px;
 
-  sky.addColorStop(
-    0,
-    "#070917"
-  );
+  margin-bottom: 10px;
+}
 
-  sky.addColorStop(
-    1,
-    "#242744"
-  );
+.result-card h2 {
 
+  font-size: 38px;
 
-  ctx.fillStyle = sky;
+  margin: 8px 0;
+}
 
-  ctx.fillRect(
-    0,
-    0,
-    width,
-    height / 2
-  );
+.result-card p {
 
+  color: #b7c3d9;
+
+  line-height: 1.6;
+}
+
+.score-box {
+
+  margin: 22px 0;
+
+  padding: 18px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 15px;
+
+  background: #0c1320;
+}
+
+.score-box span {
+
+  display: block;
+
+  color: var(--muted);
+
+  font-size: 10px;
+
+  letter-spacing: 2px;
+}
+
+.score-box strong {
+
+  font-size: 42px;
+
+  color: var(--gold);
 }
 
 
-/* =========================================================
-   DESENHAR CHÃO
-========================================================= */
+/* TOAST */
 
-function drawFloor() {
+.toast {
 
-  const floor =
-    ctx.createLinearGradient(
-      0,
-      height / 2,
-      0,
-      height
-    );
+  position: fixed;
 
+  top: 88px;
 
-  floor.addColorStop(
-    0,
-    "#25283a"
-  );
+  right: 18px;
 
-  floor.addColorStop(
-    1,
-    "#080a12"
-  );
+  background: #182237;
 
+  border: 1px solid var(--line);
 
-  ctx.fillStyle = floor;
+  padding: 12px 15px;
 
-  ctx.fillRect(
-    0,
-    height / 2,
-    width,
-    height / 2
-  );
+  border-radius: 10px;
 
+  z-index: 30;
 
-  /* LINHAS DE PERSPECTIVA */
+  transform: translateX(130%);
 
-  ctx.strokeStyle =
-    "rgba(255,255,255,0.07)";
+  transition: .25s;
 
-  ctx.lineWidth = 1;
+  box-shadow: var(--shadow);
 
+  font-size: 13px;
+}
 
-  for (
-    let i = -10;
-    i <= 10;
-    i++
-  ) {
+.toast.show {
 
-    const x =
-      width / 2 +
-      i * (width / 14);
-
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      width / 2,
-      height / 2
-    );
-
-    ctx.lineTo(
-      x,
-      height
-    );
-
-    ctx.stroke();
-
-  }
-
-
-  for (
-    let i = 1;
-    i <= 9;
-    i++
-  ) {
-
-    const y =
-      height / 2 +
-      Math.pow(
-        i / 9,
-        1.7
-      ) *
-      height / 2;
-
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-      0,
-      y
-    );
-
-    ctx.lineTo(
-      width,
-      y
-    );
-
-    ctx.stroke();
-
-  }
-
+  transform: translateX(0);
 }
 
 
-/* =========================================================
-   PAREDES
-========================================================= */
+/* ANIMAÇÃO */
 
-function drawWalls() {
+.shake {
 
-  const wallData = [];
+  animation: shake .35s;
+}
 
+@keyframes shake {
 
-  for (
-    let ray = 0;
-    ray < RAYS;
-    ray++
-  ) {
+  25% {
+    transform: translateX(-5px);
+  }
 
-    const rayAngle =
-      player.angle -
-      FOV / 2 +
-      (ray / RAYS) * FOV;
+  50% {
+    transform: translateX(5px);
+  }
 
-
-    let distanceValue =
-      castRay(rayAngle);
-
-
-    /* CORREÇÃO DO EFEITO FISH EYE */
-
-    distanceValue *=
-      Math.cos(
-        rayAngle -
-        player.angle
-      );
-
-
-    wallData.push(
-      distanceValue
-    );
-
-
-    const wallHeight =
-      Math.min(
-        height * 1.5,
-        height /
-        Math.max(
-          distanceValue,
-          0.1
-        )
-      );
-
-
-    const sliceWidth =
-      width / RAYS + 1;
-
-
-    const x =
-      ray * sliceWidth;
-
-
-    const top =
-      height / 2 -
-      wallHeight / 2;
-
-
-    let brightness =
-      1 -
-      distanceValue / 30;
-
-
-    brightness =
-      Math.max(
-        0.15,
-        brightness
-      );
-
-
-    const value =
-      Math.floor(
-        45 +
-        brightness * 65
-      );
-
-
-    ctx.fillStyle =
-      `rgb(${value}, ${value + 3}, ${value + 15})`;
-
-
-    ctx.fillRect(
-      x,
-      top,
-      sliceWidth + 1,
-      wallHeight
-    );
-
-
-    /* luzes do corredor */
-
-    if (
-      ray % 30 === 0 &&
-      distanceValue < 18
-    ) {
-
-      ctx.fillStyle =
-        "rgba(210,220,255,0.18)";
-
-      ctx.fillRect(
-        x,
-        top,
-        sliceWidth + 1,
-        4
-      );
-
-    }
-
+  75% {
+    transform: translateX(-4px);
   }
 
 }
 
 
-/* =========================================================
-   DESENHAR OBJETOS
-========================================================= */
+/* CELULAR */
 
-function drawObjects() {
+@media(max-width:800px) {
 
-  const visible = [];
+  .topbar {
 
+    height: auto;
 
-  for (
-    const object of objects
-  ) {
+    min-height: 74px;
 
-    const projected =
-      projectObject(object);
+    padding: 12px;
 
-
-    if (projected) {
-
-      visible.push({
-        object,
-        projected
-      });
-
-    }
-
+    align-items: flex-start;
   }
 
+  .hud {
 
-  visible.sort(
-    (a,b) =>
-      b.projected.distance -
-      a.projected.distance
-  );
+    flex-wrap: wrap;
 
-
-  for (
-    const item of visible
-  ) {
-
-    const object =
-      item.object;
-
-    const p =
-      item.projected;
-
-
-    const radius =
-      Math.max(
-        7,
-        p.size * 0.18
-      );
-
-
-    /* brilho */
-
-    const glow =
-      ctx.createRadialGradient(
-        p.x,
-        p.y,
-        0,
-        p.x,
-        p.y,
-        radius * 2
-      );
-
-
-    glow.addColorStop(
-      0,
-      object.color + "aa"
-    );
-
-    glow.addColorStop(
-      1,
-      object.color + "00"
-    );
-
-
-    ctx.fillStyle = glow;
-
-    ctx.beginPath();
-
-    ctx.arc(
-      p.x,
-      p.y,
-      radius * 2,
-      0,
-      Math.PI * 2
-    );
-
-    ctx.fill();
-
-
-    /* objeto */
-
-    ctx.fillStyle =
-      object.color;
-
-
-    ctx.beginPath();
-
-    ctx.arc(
-      p.x,
-      p.y,
-      radius,
-      0,
-      Math.PI * 2
-    );
-
-    ctx.fill();
-
-
-    /* contorno */
-
-    ctx.strokeStyle =
-      "#ffffffaa";
-
-    ctx.lineWidth = 2;
-
-    ctx.stroke();
-
-
-    /* símbolo */
-
-    ctx.fillStyle =
-      "#ffffff";
-
-    ctx.font =
-      `bold ${Math.max(
-        12,
-        radius
-      )}px Arial`;
-
-    ctx.textAlign =
-      "center";
-
-    ctx.textBaseline =
-      "middle";
-
-
-    let symbol = "?";
-
-
-    if (object.type === "key") {
-      symbol = "🔑";
-    }
-
-    if (object.type === "safe") {
-      symbol = "🔐";
-    }
-
-
-    ctx.fillText(
-      symbol,
-      p.x,
-      p.y
-    );
-
+    justify-content: flex-end;
   }
 
+  .hud-btn {
+
+    font-size: 10px;
+
+    padding: 0 9px;
+  }
+
+  .game-layout {
+
+    height: auto;
+
+    min-height: calc(100vh - 74px);
+
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+
+    border-right: 0;
+
+    border-bottom: 1px solid var(--line);
+
+    padding: 10px;
+  }
+
+  .map-buttons {
+
+    display: flex;
+
+    overflow: auto;
+  }
+
+  .map-btn {
+
+    min-width: 125px;
+  }
+
+  .inventory-title,
+  .inventory,
+  .objective {
+
+    display: none;
+  }
+
+  .room {
+
+    min-height: 70vh;
+
+    padding: 12px;
+  }
+
+  .scene-body {
+
+    padding: 13px;
+
+    grid-template-columns: repeat(2,1fr);
+  }
+
+  .object-btn {
+
+    min-height: 105px;
+
+    padding: 12px;
+  }
+
+  .statusbar {
+
+    font-size: 9px;
+  }
+
+  .start-card,
+  .result-card,
+  .panel {
+
+    padding: 28px 20px;
+  }
 }
 
 
 /* =========================================================
-   PORTA DE SAÍDA
+   ESCAPE SCHOOL — EXPLORAÇÃO 2D DE SALAS
+   Esta camada mantém o escape room original e troca apenas
+   a representação da sala por um cenário visto de cima.
 ========================================================= */
 
-function drawExit() {
+.room-wrap { padding: 22px 28px 0; }
+.room { padding: 0; overflow: hidden; background: #080e19; }
+.topdown-wrap { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.topdown-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 20px; border: 1px solid #2a3852; border-radius: 16px; background: linear-gradient(135deg, rgba(124,92,255,.14), rgba(32,215,165,.06)), #111827; }
+.topdown-header h2 { margin: 0 0 5px; font-size: 23px; }
+.topdown-header p { margin: 0; color: #9eacc5; font-size: 13px; line-height: 1.45; }
+.topdown-help { padding: 10px 13px; border: 1px solid #2a3852; border-radius: 10px; color: #aebbd2; background: rgba(0,0,0,.18); font-size: 11px; white-space: nowrap; }
+.topdown-map { position: relative; width: 100%; min-height: 440px; overflow: hidden; border: 9px solid #242d3d; border-radius: 17px; background-color: #151f2b; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 38px 38px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.3), 0 15px 35px rgba(0,0,0,.34); }
+.topdown-map::before { content: ""; position: absolute; inset: 22px; border: 2px solid rgba(255,255,255,.1); border-radius: 12px; pointer-events: none; }
+.topdown-map::after { content: "PLANTA DA ESCOLA"; position: absolute; top: 34px; right: 36px; color: rgba(201,214,242,.32); font-size: 10px; font-weight: 900; letter-spacing: 2px; pointer-events: none; }
+.topdown-floor-lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 54px, rgba(255,255,255,.018) 55px 56px); pointer-events: none; }
+.topdown-wall { position: absolute; z-index: 2; background: linear-gradient(135deg, #34445e, #1e2c42); box-shadow: 0 3px 0 #0b111d, inset 0 1px rgba(255,255,255,.12); }
+.wall-top { top: 0; right: 0; left: 0; height: 19px; }
+.wall-bottom { right: 0; bottom: 0; left: 0; height: 19px; }
+.wall-left { top: 0; bottom: 0; left: 0; width: 19px; }
+.wall-right { top: 0; right: 0; bottom: 0; width: 19px; }
+.room-prop { position: absolute; z-index: 1; border: 1px solid rgba(138,165,222,.18); border-radius: 7px; background: rgba(41,59,86,.46); box-shadow: inset 0 0 15px rgba(0,0,0,.2); pointer-events: none; }
+.room-prop.window { top: 8%; width: 15%; height: 4%; border-color: rgba(41,215,220,.4); background: repeating-linear-gradient(90deg, rgba(41,215,220,.3) 0 12px, transparent 12px 18px); }
+.room-prop.window.left { left: 11%; }
+.room-prop.window.right { right: 11%; }
+.room-prop.rug { top: 44%; left: 35%; width: 30%; height: 22%; border: 2px solid rgba(124,92,255,.26); background: rgba(124,92,255,.08); transform: rotate(-2deg); }
+.room-prop.lab-table { top: 43%; left: 18%; width: 64%; height: 13%; border-radius: 3px; background: linear-gradient(#754f38, #3f2b25); }
+.room-prop.shelves { top: 15%; left: 5%; width: 9%; height: 63%; background: repeating-linear-gradient(0deg, #463b5f 0 18px, #23263e 19px 23px); }
+.room-prop.shelves.right { right: 5%; left: auto; }
+.room-prop.board { top: 9%; left: 30%; width: 37%; height: 13%; border-color: #4a6b64; background: #183733; }
+.room-prop.locker-row { top: 23%; left: 6%; width: 88%; height: 12%; border-radius: 5px; background: repeating-linear-gradient(90deg, #344b67 0 9%, #1f2c43 9.5% 10.5%); }
+.topdown-object { position: absolute; z-index: 6; display: flex; min-width: 76px; flex-direction: column; align-items: center; gap: 4px; padding: 8px 9px; transform: translate(-50%, -50%); border: 1px solid rgba(160,185,245,.38); border-radius: 11px; color: #f0f4ff; background: linear-gradient(145deg, rgba(31,47,73,.96), rgba(13,23,40,.96)); box-shadow: 0 7px 14px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.07); transition: transform .18s, border-color .18s, box-shadow .18s; }
+.topdown-object:hover, .topdown-object:focus-visible { z-index: 8; border-color: #a18cff; box-shadow: 0 0 0 3px rgba(124,92,255,.15), 0 10px 20px rgba(0,0,0,.4); transform: translate(-50%, -55%) scale(1.05); outline: none; }
+.topdown-object span { font-size: 27px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.topdown-object small { color: #c4cde0; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.topdown-player { position: absolute; z-index: 9; display: grid; place-items: center; width: 58px; height: 70px; transform: translate(-50%, -50%); pointer-events: none; transition: left .08s linear, top .08s linear; filter: drop-shadow(0 7px 5px rgba(0,0,0,.45)); }
+.topdown-player span { display: grid; place-items: center; width: 44px; height: 44px; border: 3px solid #20d7a5; border-radius: 50%; background: #182f3e; font-size: 26px; box-shadow: 0 0 18px rgba(32,215,165,.35); animation: studentFloat .75s infinite alternate ease-in-out; }
+.topdown-player small { margin-top: 4px; padding: 2px 5px; border-radius: 4px; color: #08131c; background: #20d7a5; font-size: 8px; font-weight: 900; }
+.topdown-label { position: absolute; z-index: 4; color: rgba(212,224,247,.5); font-size: 10px; font-weight: 900; letter-spacing: 2px; pointer-events: none; }
+.label-start { bottom: 8%; left: 5%; }
+.label-exit { right: 5%; bottom: 8%; color: rgba(32,215,165,.64); }
+.topdown-controls { display: flex; justify-content: center; gap: 5px; }
+.topdown-controls button { width: 42px; height: 34px; border: 1px solid #2a3852; border-radius: 9px; color: #dce6fa; background: #17243a; font-weight: 900; touch-action: none; }
+.topdown-controls button:hover { border-color: #a18cff; background: #252e52; }
+.topdown-status { display: flex; gap: 5px; align-items: center; padding: 10px 12px; border: 1px solid #2a3852; border-radius: 10px; color: #9eacc5; background: #0d1524; font-size: 12px; }
+.topdown-status strong { color: #ffc857; }
+.topdown-object.is-solved { opacity: .48; border-color: #20d7a5; }
 
-  const dx =
-    0 - player.x;
+@keyframes studentFloat { to { transform: translateY(-3px); } }
 
-  const dy =
-    -16.4 - player.y;
-
-
-  const distanceValue =
-    Math.sqrt(
-      dx * dx +
-      dy * dy
-    );
-
-
-  let angle =
-    Math.atan2(
-      dx,
-      dy
-    );
-
-
-  angle =
-    normalizeAngle(
-      angle - player.angle
-    );
-
-
-  if (
-    Math.abs(angle) >
-    FOV / 2
-  ) {
-
-    return;
-
-  }
-
-
-  const screenX =
-    width / 2 +
-    (angle / (FOV / 2)) *
-    (width / 2);
-
-
-  const doorHeight =
-    Math.min(
-      height * 1.2,
-      height /
-      Math.max(
-        distanceValue,
-        0.1
-      )
-    );
-
-
-  const doorWidth =
-    doorHeight * 0.55;
-
-
-  const top =
-    height / 2 -
-    doorHeight / 2;
-
-
-  ctx.fillStyle =
-    "#5a1725";
-
-
-  ctx.fillRect(
-    screenX - doorWidth / 2,
-    top,
-    doorWidth,
-    doorHeight
-  );
-
-
-  ctx.strokeStyle =
-    "#e15168";
-
-  ctx.lineWidth = 3;
-
-
-  ctx.strokeRect(
-    screenX - doorWidth / 2,
-    top,
-    doorWidth,
-    doorHeight
-  );
-
-
-  if (
-    distanceValue < 12
-  ) {
-
-    ctx.fillStyle =
-      "#ff8c9c";
-
-    ctx.font =
-      "bold 15px Arial";
-
-    ctx.textAlign =
-      "center";
-
-    ctx.fillText(
-      "SAÍDA TRANCADA",
-      screenX,
-      top - 15
-    );
-
-  }
-
+@media (min-width: 1100px) {
+  .room-wrap { padding: 28px 42px 0; }
+  .topdown-map { min-height: 500px; }
+}
+@media (max-width: 800px) {
+  .room-wrap { padding: 14px 12px 0; }
+  .topdown-header { align-items: flex-start; flex-direction: column; padding: 13px 14px; }
+  .topdown-help { width: 100%; white-space: normal; }
+  .topdown-map { min-height: 390px; border-width: 6px; background-size: 28px 28px; }
+  .topdown-object { min-width: 60px; padding: 6px; }
+  .topdown-object span { font-size: 22px; }
+  .topdown-object small { font-size: 8px; }
+  .topdown-player { transform: translate(-50%, -50%) scale(.88); }
+  .topdown-status { font-size: 10px; }
+}
+@media (max-width: 520px) {
+  .topbar { height: auto; min-height: 74px; padding: 10px 12px; align-items: flex-start; }
+  .hud { flex-wrap: wrap; justify-content: flex-end; }
+  .hud-btn { font-size: 10px; padding: 0 8px; }
+  .game-layout { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 74px); }
+  .sidebar { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+  .map-buttons { display: flex; gap: 7px; overflow-x: auto; }
+  .map-btn { min-width: 130px; }
+  .inventory, .inventory-title, .objective { display: none; }
+  .room { min-height: 0; }
+  .topdown-map { min-height: 340px; }
+  .topdown-object { min-width: 52px; }
+  .topdown-object span { font-size: 19px; }
+  .topdown-object small { max-width: 66px; overflow: hidden; text-overflow: ellipsis; }
 }
 
 
-/* =========================================================
-   DESENHAR ESCOLA
-========================================================= */
-
-function drawGame() {
-
-  ctx.clearRect(
-    0,
-    0,
-    width,
-    height
-  );
+/* Interação por proximidade e teclado */
+.topdown-object { cursor: not-allowed; }
+.topdown-object:disabled { opacity: .32; filter: grayscale(.65); border-color: rgba(160,185,245,.18); box-shadow: none; cursor: not-allowed; transform: translate(-50%, -50%); }
+.topdown-object.is-nearby { opacity: 1; filter: none; border-color: #ffc857; box-shadow: 0 0 0 4px rgba(255,200,87,.18), 0 0 22px rgba(255,200,87,.32); cursor: pointer; animation: nearbyPulse 1.15s infinite ease-in-out; }
+.topdown-object.is-nearby::after { content: "ENTER"; position: absolute; top: -23px; left: 50%; padding: 3px 6px; transform: translateX(-50%); border-radius: 4px; color: #131a27; background: #ffc857; font-size: 8px; font-weight: 1000; letter-spacing: .7px; white-space: nowrap; }
+.topdown-object.is-nearby:hover, .topdown-object.is-nearby:focus-visible { border-color: #20d7a5; box-shadow: 0 0 0 4px rgba(32,215,165,.2), 0 0 24px rgba(32,215,165,.36); transform: translate(-50%, -55%) scale(1.07); }
+.topdown-status { min-height: 38px; }
+.topdown-status strong { color: #ffc857; }
+@keyframes nearbyPulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(255,200,87,.13), 0 0 12px rgba(255,200,87,.18); } 50% { box-shadow: 0 0 0 5px rgba(255,200,87,.22), 0 0 23px rgba(255,200,87,.35); } }
+@media (prefers-reduced-motion: reduce) { .topdown-player span, .topdown-object.is-nearby { animation: none; } }
 
 
-  drawSky();
+/* Móveis decorativos e obstáculos não interativos */
+.solid-obstacle { position: absolute; z-index: 3; pointer-events: none; border: 2px solid rgba(16,25,40,.8); border-radius: 7px; background: linear-gradient(145deg, #76533c, #392a2a); box-shadow: 0 5px 0 #101725, inset 0 2px rgba(255,255,255,.12), 0 8px 14px rgba(0,0,0,.28); }
+.solid-obstacle::after { content: ""; position: absolute; inset: 20% 8%; border: 1px solid rgba(255,255,255,.12); border-radius: 3px; }
+.obstacle-teacher-desk, .obstacle-computer-table, .obstacle-reading-table, .obstacle-lab-bench { background: linear-gradient(180deg, #956443 0 22%, #51362d 23% 78%, #2e2630 79%); }
+.obstacle-desk-row { background: repeating-linear-gradient(90deg, #8a5b3f 0 12%, #55382f 12% 18%, #8a5b3f 18% 30%, #302b34 30% 36%); }
+.obstacle-cabinet-furniture, .obstacle-bookcase, .obstacle-locker-row { border-color: #243c5c; background: repeating-linear-gradient(0deg, #405c78 0 14%, #243a57 15% 20%); }
+.obstacle-bookcase { background: repeating-linear-gradient(0deg, #6c4c3e 0 16%, #332832 17% 21%); }
+.obstacle-chair, .obstacle-stool { border-radius: 50%; background: radial-gradient(circle at 45% 35%, #b8794e 0 30%, #56392f 31% 70%, #2e2630 71%); }
+.obstacle-bench { background: linear-gradient(#8b5b3e 0 35%, #3f2c2b 36% 100%); }
+.obstacle-plant { border-radius: 45% 45% 30% 30%; background: radial-gradient(circle at 45% 30%, #46ab75 0 24%, #206447 25% 58%, #603d36 59%); }
+.obstacle-gate { border-color: #20d7a5; background: repeating-linear-gradient(90deg, #164f53 0 8%, #32b993 9% 12%, #164f53 13% 20%); box-shadow: 0 0 20px rgba(32,215,165,.32), 0 5px 0 #101725; }
+.board-wall, .formula-board, .equipment-wall, .corridor-window { pointer-events: none; }
+.topdown-object { z-index: 7; }
+.topdown-player { z-index: 10; }
 
-  drawFloor();
 
-  drawWalls();
-
-  drawExit();
-
-  drawObjects();
-
+/* Layout de jogo em tela cheia */
+#app { width: 100%; max-width: none; }
+.game-screen.active { display: flex; flex-direction: column; min-height: 100vh; }
+.game-screen .topbar { flex: 0 0 auto; width: 100%; }
+.game-screen .game-layout { width: 100%; max-width: none; flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(210px, 18vw) minmax(0, 1fr); }
+.game-screen .sidebar { min-width: 0; }
+.game-screen .room-wrap { min-width: 0; display: flex; flex-direction: column; }
+.game-screen .room { flex: 1 1 auto; min-height: 0; }
+.game-screen .topdown-map { min-height: min(64vh, 650px); height: clamp(420px, 66vh, 650px); }
+@media (max-width: 800px) {
+  .game-screen .game-layout { display: flex; flex-direction: column; }
+  .game-screen .sidebar { flex: 0 0 auto; }
+  .game-screen .room-wrap { flex: 1 1 auto; }
+  .game-screen .topdown-map { height: clamp(340px, 58vh, 520px); min-height: 340px; }
 }
 
 
-/* =========================================================
-   ATUALIZAR PROMPT
-========================================================= */
-
-function updatePrompt() {
-
-  const nearest =
-    getNearestObject();
-
-
-  if (nearest) {
-
-    promptElement.style.opacity =
-      "1";
-
-    promptElement.textContent =
-      "E — " +
-      nearest.name.toUpperCase();
-
-  } else {
-
-    promptElement.style.opacity =
-      "0";
-
-  }
-
-}
-
-
-/* =========================================================
-   CRONÔMETRO
-========================================================= */
-
-function updateTimer(delta) {
-
-  if (!playing || finished) {
-    return;
-  }
-
-
-  timeLeft -= delta;
-
-
-  if (timeLeft <= 0) {
-
-    timeLeft = 0;
-
-    playing = false;
-
-    loseScreen.classList.remove(
-      "hidden"
-    );
-
-    return;
-
-  }
-
-
-  const minutes =
-    Math.floor(
-      timeLeft / 60
-    );
-
-
-  const seconds =
-    Math.floor(
-      timeLeft % 60
-    );
-
-
-  timerElement.textContent =
-    String(minutes).padStart(
-      2,
-      "0"
-    ) +
-    ":" +
-    String(seconds).padStart(
-      2,
-      "0"
-    );
-
-}
-
-
-/* =========================================================
-   LOOP PRINCIPAL
-========================================================= */
-
-let lastTime = performance.now();
-
-
-function gameLoop(now) {
-
-  const delta =
-    Math.min(
-      (now - lastTime) / 1000,
-      0.05
-    );
-
-
-  lastTime = now;
-
-
-  if (playing) {
-
-    updateMovement(delta);
-
-    updateTimer(delta);
-
-    updatePrompt();
-
-  }
-
-
-  if (!game.classList.contains("hidden")) {
-
-    drawGame();
-
-  }
-
-
-  requestAnimationFrame(
-    gameLoop
-  );
-
-}
-
-
-requestAnimationFrame(
-  gameLoop
-);
-
-
-/* =========================================================
-   INICIAR
-========================================================= */
-
-startButton.addEventListener(
-  "click",
-  () => {
-
-    startScreen.classList.add(
-      "hidden"
-    );
-
-    game.classList.remove(
-      "hidden"
-    );
-
-    playing = true;
-
-    finished = false;
-
-    timeLeft = 15 * 60;
-
-    player.x = 0;
-
-    player.y = 12;
-
-    player.angle = Math.PI;
-
-    setObjective(
-      "Encontre a pista azul."
-    );
-
-    showMessage(
-      "Explore a escola e encontre a pista azul."
-    );
-
-  }
-);
-
-
-/* =========================================================
-   COMO JOGAR
-========================================================= */
-
-howButton.addEventListener(
-  "click",
-  () => {
-
-    startScreen.classList.add(
-      "hidden"
-    );
-
-    howScreen.classList.remove(
-      "hidden"
-    );
-
-  }
-);
-
-
-backButton.addEventListener(
-  "click",
-  () => {
-
-    howScreen.classList.add(
-      "hidden"
-    );
-
-    startScreen.classList.remove(
-      "hidden"
-    );
-
-  }
-);
-
-
-/* =========================================================
-   REINICIAR
-========================================================= */
-
-restartWin.addEventListener(
-  "click",
-  () => {
-
-    location.reload();
-
-  }
-);
-
-
-restartLose.addEventListener(
-  "click",
-  () => {
-
-    location.reload();
-
-  }
-);
-
-
-/* =========================================================
-   TECLADO
-========================================================= */
-
-window.addEventListener(
-  "keydown",
-  event => {
-
-    keys[
-      event.key.toLowerCase()
-    ] = true;
-
-
-    if (
-      event.key.toLowerCase() === "e"
-    ) {
-
-      interact();
-
-    }
-
-  }
-);
-
-
-window.addEventListener(
-  "keyup",
-  event => {
-
-    keys[
-      event.key.toLowerCase()
-    ] = false;
-
-  }
-);
-
-
-/* =========================================================
-   MOUSE
-========================================================= */
-
-let mouseDown = false;
-let lastMouseX = 0;
-
-
-canvas.addEventListener(
-  "mousedown",
-  event => {
-
-    mouseDown = true;
-
-    lastMouseX =
-      event.clientX;
-
-  }
-);
-
-
-window.addEventListener(
-  "mouseup",
-  () => {
-
-    mouseDown = false;
-
-  }
-);
-
-
-window.addEventListener(
-  "mousemove",
-  event => {
-
-    if (
-      !mouseDown ||
-      !playing
-    ) {
-
-      return;
-
-    }
-
-
-    const difference =
-      event.clientX -
-      lastMouseX;
-
-
-    player.angle +=
-      difference * 0.006;
-
-
-    lastMouseX =
-      event.clientX;
-
-  }
-);
-
-
-/* =========================================================
-   JOYSTICK
-========================================================= */
-
-let joystickPointer = null;
-
-
-function updateJoystick(event) {
-
-  const rect =
-    joystick.getBoundingClientRect();
-
-
-  const centerX =
-    rect.left +
-    rect.width / 2;
-
-
-  const centerY =
-    rect.top +
-    rect.height / 2;
-
-
-  let x =
-    (event.clientX -
-      centerX) / 43;
-
-
-  let y =
-    (event.clientY -
-      centerY) / 43;
-
-
-  const length =
-    Math.sqrt(
-      x * x +
-      y * y
-    );
-
-
-  if (length > 1) {
-
-    x /= length;
-
-    y /= length;
-
-  }
-
-
-  joystickX = x;
-
-  joystickY = y;
-
-
-  joystickStick.style.transform =
-    `translate(
-      ${x * 35}px,
-      ${y * 35}px
-    )`;
-
-}
-
-
-function resetJoystick() {
-
-  joystickX = 0;
-
-  joystickY = 0;
-
-  joystickStick.style.transform =
-    "translate(0,0)";
-
-}
-
-
-joystick.addEventListener(
-  "pointerdown",
-  event => {
-
-    joystickPointer =
-      event.pointerId;
-
-    joystick.setPointerCapture(
-      joystickPointer
-    );
-
-    updateJoystick(event);
-
-  }
-);
-
-
-joystick.addEventListener(
-  "pointermove",
-  event => {
-
-    if (
-      event.pointerId ===
-      joystickPointer
-    ) {
-
-      updateJoystick(event);
-
-    }
-
-  }
-);
-
-
-joystick.addEventListener(
-  "pointerup",
-  resetJoystick
-);
-
-
-joystick.addEventListener(
-  "pointercancel",
-  resetJoystick
-);
-
-
-/* =========================================================
-   OLHAR NO CELULAR
-========================================================= */
-
-let looking = false;
-
-let lastTouchX = 0;
-
-game.addEventListener(
-  "touchstart",
-  event => {
-
-    if (
-      event.touches.length !== 1
-    ) {
-
-      return;
-
-    }
-
-
-    const touch =
-      event.touches[0];
-
-
-    if (
-      touch.clientX >
-      window.innerWidth * 0.48
-    ) {
-
-      looking = true;
-
-      lastTouchX =
-        touch.clientX;
-
-    }
-
-  },
-  {
-    passive: false
-  }
-);
-
-
-game.addEventListener(
-  "touchmove",
-  event => {
-
-    if (!looking) {
-      return;
-    }
-
-
-    const touch =
-      event.touches[0];
-
-
-    const difference =
-      touch.clientX -
-      lastTouchX;
-
-
-    player.angle +=
-      difference * 0.008;
-
-
-    lastTouchX =
-      touch.clientX;
-
-
-    event.preventDefault();
-
-  },
-  {
-    passive: false
-  }
-);
-
-
-game.addEventListener(
-  "touchend",
-  () => {
-
-    looking = false;
-
-  }
-);
-
-
-/* =========================================================
-   BOTÃO INTERAGIR
-========================================================= */
-
-interactButton.addEventListener(
-  "click",
-  interact
-);
-
-
-/* =========================================================
-   CORRER
-========================================================= */
-
-runButton.addEventListener(
-  "pointerdown",
-  () => {
-
-    running = true;
-
-  }
-);
-
-
-runButton.addEventListener(
-  "pointerup",
-  () => {
-
-    running = false;
-
-  }
-);
-
-
-runButton.addEventListener(
-  "pointercancel",
-  () => {
-
-    running = false;
-
-  }
-);
-
-
-/* =========================================================
-   PREVENIR ZOOM / SCROLL
-========================================================= */
-
-document.addEventListener(
-  "gesturestart",
-  event => {
-
-    event.preventDefault();
-
-  }
-);
-
-
-document.addEventListener(
-  "dblclick",
-  event => {
-
-    event.preventDefault();
-
-  }
-);
-
-
-/* =========================================================
-   FINAL
-========================================================= */
-
-console.log(
-  "ESCAPE DA ESCOLA carregado com sucesso."
-);
+/* Inspetor: presença de fase, não objeto investigável */
+.escape-inspector { position: absolute; z-index: 8; display: grid; place-items: center; width: 60px; height: 72px; transform: translate(-50%, -50%); pointer-events: none; filter: drop-shadow(0 6px 5px rgba(0,0,0,.45)); transition: left .12s linear; }
+.escape-inspector span { display: grid; place-items: center; width: 43px; height: 43px; border: 3px solid #ff6874; border-radius: 50%; background: #3b1e35; font-size: 25px; box-shadow: 0 0 20px rgba(255,104,116,.42); animation: inspectorLook 1.2s infinite alternate ease-in-out; }
+.escape-inspector small { margin-top: 4px; padding: 2px 5px; border-radius: 4px; color: #fff; background: #d84e61; font-size: 8px; font-weight: 900; letter-spacing: .5px; }
+@keyframes inspectorLook { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { .escape-inspector span { animation: none; } }
+
+
+/* Inventário funcional */
+#inventory .item { appearance: none; width: 100%; min-height: 58px; display: grid; place-items: center; padding: 6px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--panel2); }
+#inventory .item.collected { cursor: pointer; border-color: rgba(255,200,87,.55); background: linear-gradient(145deg, rgba(255,200,87,.12), rgba(32,215,165,.08)); }
+#inventory .item.collected:hover, #inventory .item.collected:focus-visible { border-color: #20d7a5; box-shadow: 0 0 0 3px rgba(32,215,165,.16); outline: none; transform: translateY(-1px); }
+#inventory .item.empty { cursor: not-allowed; opacity: .55; }
+#inventory .item span { font-size: 25px; }
+#inventory .item small { color: #c8d4e8; font-size: 9px; font-weight: 800; }
