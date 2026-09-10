@@ -8,11 +8,13 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     >
 
-    <title>Escape da Escola — 3D</title>
+    <meta name="theme-color" content="#020617">
+
+    <title>Escape da Escola — Depois do Sinal</title>
 
     <meta
         name="description"
-        content="Escape da Escola — uma aventura 3D de enigmas, exploração e suspense."
+        content="Escape da Escola — encontre as pistas, resolva os enigmas e escape antes que o tempo acabe."
     >
 
     <link rel="stylesheet" href="style.css">
@@ -28,34 +30,55 @@
 
 <body>
 
+    <!-- =====================================================
+         LOADING
+    ====================================================== -->
+
     <div id="loading">
         <div class="loading-box">
             <div class="loading-icon">🏫</div>
+
             <h2>ESCAPE DA ESCOLA</h2>
+
             <div class="loading-bar">
                 <div id="loadingProgress"></div>
             </div>
+
             <p id="loadingText">Preparando a escola...</p>
         </div>
     </div>
 
+
+    <!-- =====================================================
+         MENU
+    ====================================================== -->
+
     <div id="startScreen" class="overlay">
+
         <div class="menu-card">
 
             <div class="logo">
-                <span>🏫</span>
-                <small>PROJETO</small>
-                <h1>ESCAPE DA<br>ESCOLA</h1>
+                <span class="logo-icon">🏫</span>
+
+                <div>
+                    <small>PROJETO FEXTEC</small>
+
+                    <h1>
+                        ESCAPE DA<br>
+                        ESCOLA
+                    </h1>
+                </div>
             </div>
 
             <p class="intro">
                 A escola fechou e você ficou preso lá dentro.
-                As portas estão trancadas. As luzes estão falhando.
+                As portas estão trancadas e as luzes estão falhando.
                 Encontre as pistas, resolva os enigmas e encontre a saída.
             </p>
 
             <div class="warning-box">
                 <span>⚠</span>
+
                 <div>
                     <strong>ATENÇÃO</strong>
                     <p>Você tem apenas 15 minutos.</p>
@@ -64,52 +87,64 @@
 
             <div class="controls-grid">
 
-                <div>
+                <div class="control">
                     <b>W A S D</b>
                     <span>Movimento</span>
                 </div>
 
-                <div>
+                <div class="control">
                     <b>MOUSE</b>
                     <span>Olhar</span>
                 </div>
 
-                <div>
+                <div class="control">
                     <b>E</b>
                     <span>Interagir</span>
                 </div>
 
-                <div>
+                <div class="control">
                     <b>SHIFT</b>
                     <span>Correr</span>
                 </div>
 
-                <div>
+                <div class="control">
                     <b>F</b>
                     <span>Lanterna</span>
                 </div>
 
-                <div>
+                <div class="control">
                     <b>ESC</b>
                     <span>Pausar</span>
                 </div>
 
             </div>
 
-            <button id="startButton" class="primary-button">
+            <button
+                id="startButton"
+                class="primary-button"
+            >
                 ENTRAR NA ESCOLA
             </button>
 
-            <button id="continueButton" class="secondary-button hidden">
+            <button
+                id="continueButton"
+                class="secondary-button hidden"
+            >
                 CONTINUAR JOGO
             </button>
 
             <p class="version">
-                ESCAPE DA ESCOLA 3D · v2.0
+                ESCAPE DA ESCOLA · FEXTEC · v2.0
             </p>
 
         </div>
+
     </div>
+
+
+    <!-- =====================================================
+         HUD
+    ====================================================== -->
 
     <div id="hud" class="hidden">
 
@@ -120,29 +155,49 @@
             </div>
 
             <div class="objective-box">
+
                 <span>OBJETIVO ATUAL</span>
+
                 <strong id="objective">
                     Encontre uma saída.
                 </strong>
+
             </div>
 
             <div class="timer-box">
+
                 <span>TEMPO</span>
-                <strong id="timer">15:00</strong>
+
+                <strong id="timer">
+                    15:00
+                </strong>
+
             </div>
 
         </div>
 
+
         <div id="crosshair">
+            <span></span>
+            <span></span>
+            <span></span>
             <span></span>
         </div>
 
+
         <div id="interactionPrompt">
+
             <kbd>E</kbd>
-            <span id="interactionText">Interagir</span>
+
+            <span id="interactionText">
+                Interagir
+            </span>
+
         </div>
 
+
         <div id="messageContainer"></div>
+
 
         <div class="bottom-left">
 
@@ -150,26 +205,36 @@
 
                 <div class="status-title">
                     <span>🔦</span>
-                    <span>LANterna</span>
+                    <span>LANTERNA</span>
                 </div>
 
                 <div class="energy-bar">
                     <div id="energyFill"></div>
                 </div>
 
-                <span id="energyText">100%</span>
+                <span id="energyText">
+                    100%
+                </span>
 
             </div>
 
         </div>
+
 
         <div class="bottom-right">
 
             <div class="inventory">
 
                 <div class="inventory-header">
-                    <span>INVENTÁRIO</span>
-                    <small id="itemCount">0/8</small>
+
+                    <span>
+                        INVENTÁRIO
+                    </span>
+
+                    <small id="itemCount">
+                        0/8
+                    </small>
+
                 </div>
 
                 <div id="inventoryItems"></div>
@@ -178,13 +243,18 @@
 
         </div>
 
+
         <div id="locationName">
             ENTRADA
         </div>
 
+
         <div id="saveIndicator">
             ✓ JOGO SALVO
         </div>
+
+
+        <!-- CONTROLES MOBILE -->
 
         <div id="mobileControls" class="hidden">
 
@@ -192,28 +262,50 @@
                 <div id="joystickKnob"></div>
             </div>
 
-            <button id="mobileInteract">E</button>
-            <button id="mobileFlashlight">🔦</button>
+            <button id="mobileInteract">
+                E
+            </button>
+
+            <button id="mobileFlashlight">
+                🔦
+            </button>
 
         </div>
 
     </div>
 
+
+    <!-- =====================================================
+         PAUSA
+    ====================================================== -->
+
     <div id="pauseScreen" class="overlay hidden">
 
         <div class="pause-card">
 
-            <div class="pause-icon">⏸</div>
+            <div class="pause-icon">
+                ⏸️
+            </div>
 
-            <h1>PAUSADO</h1>
+            <h1>
+                PAUSADO
+            </h1>
 
-            <p>O jogo está pausado.</p>
+            <p>
+                O jogo está pausado.
+            </p>
 
-            <button id="resumeButton" class="primary-button">
+            <button
+                id="resumeButton"
+                class="primary-button"
+            >
                 CONTINUAR
             </button>
 
-            <button id="restartButton" class="secondary-button">
+            <button
+                id="restartButton"
+                class="secondary-button"
+            >
                 RECOMEÇAR
             </button>
 
@@ -221,43 +313,81 @@
 
     </div>
 
+
+    <!-- =====================================================
+         BILHETE
+    ====================================================== -->
+
     <div id="noteModal" class="modal hidden">
 
         <div class="modal-card note">
 
-            <button class="close-button" id="closeNote">×</button>
+            <button
+                class="close-button"
+                id="closeNote"
+            >
+                ×
+            </button>
 
             <div class="paper">
+
                 <div class="paper-pin"></div>
 
-                <div id="noteIcon" class="note-icon">📄</div>
+                <div
+                    id="noteIcon"
+                    class="note-icon"
+                >
+                    📄
+                </div>
 
-                <h2 id="noteTitle">Bilhete</h2>
+                <h2 id="noteTitle">
+                    Bilhete
+                </h2>
 
                 <div id="noteContent"></div>
 
                 <div class="paper-line"></div>
 
-                <button id="continueNote" class="primary-button">
+                <button
+                    id="continueNote"
+                    class="primary-button"
+                >
                     FECHAR
                 </button>
+
             </div>
 
         </div>
 
     </div>
 
+
+    <!-- =====================================================
+         COFRE
+    ====================================================== -->
+
     <div id="codeModal" class="modal hidden">
 
         <div class="modal-card safe-modal">
 
-            <button class="close-button" id="closeCode">×</button>
+            <button
+                class="close-button"
+                id="closeCode"
+            >
+                ×
+            </button>
 
-            <div class="safe-icon">🔐</div>
+            <div class="safe-icon">
+                🔐
+            </div>
 
-            <span class="modal-label">SISTEMA DE SEGURANÇA</span>
+            <span class="modal-label">
+                SISTEMA DE SEGURANÇA
+            </span>
 
-            <h2>COFRE</h2>
+            <h2>
+                COFRE
+            </h2>
 
             <p>
                 Digite o código de quatro números.
@@ -281,7 +411,10 @@
 
             <p id="codeFeedback"></p>
 
-            <button id="submitCode" class="primary-button">
+            <button
+                id="submitCode"
+                class="primary-button"
+            >
                 DESBLOQUEAR
             </button>
 
@@ -289,38 +422,60 @@
 
     </div>
 
+
+    <!-- =====================================================
+         VITÓRIA
+    ====================================================== -->
+
     <div id="winScreen" class="overlay hidden">
 
         <div class="result-card victory">
 
-            <div class="result-glow"></div>
+            <div class="result-icon">
+                🎉
+            </div>
 
-            <div class="result-icon">🎉</div>
+            <span class="result-label">
+                MISSÃO CONCLUÍDA
+            </span>
 
-            <span class="result-label">MISSÃO CONCLUÍDA</span>
-
-            <h1>VOCÊ ESCAPOU!</h1>
+            <h1>
+                VOCÊ ESCAPOU!
+            </h1>
 
             <p>
-                Você encontrou todas as pistas,
-                resolveu os enigmas e conseguiu sair da escola.
+                Você encontrou as pistas, resolveu os enigmas
+                e conseguiu sair da escola.
             </p>
 
             <div class="stats">
 
                 <div>
-                    <span>TEMPO RESTANTE</span>
-                    <strong id="finalTime">00:00</strong>
+                    <span>
+                        TEMPO RESTANTE
+                    </span>
+
+                    <strong id="finalTime">
+                        00:00
+                    </strong>
                 </div>
 
                 <div>
-                    <span>ITENS ENCONTRADOS</span>
-                    <strong id="finalItems">0</strong>
+                    <span>
+                        ITENS ENCONTRADOS
+                    </span>
+
+                    <strong id="finalItems">
+                        0
+                    </strong>
                 </div>
 
             </div>
 
-            <button id="winRestart" class="primary-button">
+            <button
+                id="winRestart"
+                class="primary-button"
+            >
                 JOGAR NOVAMENTE
             </button>
 
@@ -328,22 +483,36 @@
 
     </div>
 
+
+    <!-- =====================================================
+         DERROTA
+    ====================================================== -->
+
     <div id="loseScreen" class="overlay hidden">
 
         <div class="result-card defeat">
 
-            <div class="result-icon">💀</div>
+            <div class="result-icon">
+                ⏰
+            </div>
 
-            <span class="result-label">FIM DE JOGO</span>
+            <span class="result-label">
+                FIM DE JOGO
+            </span>
 
-            <h1>O TEMPO ACABOU</h1>
+            <h1>
+                O TEMPO ACABOU
+            </h1>
 
             <p>
                 As portas continuam trancadas...
                 mas talvez você consiga escapar na próxima tentativa.
             </p>
 
-            <button id="loseRestart" class="primary-button">
+            <button
+                id="loseRestart"
+                class="primary-button"
+            >
                 TENTAR NOVAMENTE
             </button>
 
@@ -351,11 +520,16 @@
 
     </div>
 
+
     <div id="flashOverlay"></div>
 
     <div id="vignette"></div>
 
-    <script type="module" src="script.js"></script>
+
+    <script
+        type="module"
+        src="script.js"
+    ></script>
 
 </body>
 </html>
