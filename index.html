@@ -2,214 +2,205 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#090b18">
-
-  <title>ESCAPE DA ESCOLA — Depois do Sinal</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090d18">
+  <title>ESCAPE SCHOOL - Depois do Sinal!</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <!-- TELA INICIAL -->
-  <section id="startScreen" class="screen">
-    <div class="menu-card">
+<div id="toast" class="toast"></div>
 
-      <div class="school-label">
+<main id="app">
+
+  <!-- TELA INICIAL -->
+  <section id="startScreen" class="screen active">
+    <div class="start-card">
+
+      <div class="eyebrow">
         FEXTEC • DESENVOLVIMENTO DE SISTEMAS
       </div>
 
-      <h1>ESCAPE DA ESCOLA</h1>
+      <h1>ESCAPE <span>SCHOOL</span></h1>
 
-      <h2>Depois do Sinal</h2>
+      <p class="subtitle">Depois do Sinal</p>
 
-      <p>
-        O último sinal tocou.
-        A escola está vazia e os portões estão trancados.
+      <p class="intro">
+        O último sinal tocou. A escola ficou vazia.
+        Você percebeu tarde demais que os portões estão trancados.
       </p>
 
-      <p class="description">
-        Explore os corredores, encontre as pistas, descubra
-        o código do cofre e consiga escapar antes que o tempo acabe.
-      </p>
-
-      <button id="startButton" class="primary-button">
+      <button id="startBtn" class="primary-btn">
         ENTRAR NA ESCOLA
       </button>
 
-      <button id="howButton" class="secondary-button">
+      <button id="howBtn" class="ghost-btn">
         COMO JOGAR
       </button>
+
+      <div class="credits">
+        Um escape room digital criado para a FEXTEC
+      </div>
 
     </div>
   </section>
 
 
   <!-- COMO JOGAR -->
-  <section id="howScreen" class="screen hidden">
-    <div class="menu-card">
+  <section id="howScreen" class="screen">
 
-      <h2>COMO JOGAR</h2>
+    <div class="panel narrow">
 
-      <p>
-        🕹️ <b>Celular:</b> use o joystick para andar e
-        arraste o lado direito da tela para olhar.
-      </p>
+      <button class="close-btn" data-close="howScreen">
+        ×
+      </button>
 
-      <p>
-        👆 Aproxime-se dos objetos brilhantes e toque no botão
-        <b>E</b> para interagir.
-      </p>
+      <h2>Como jogar</h2>
 
-      <p>
-        💻 <b>Computador:</b> use WASD para andar,
-        mouse para olhar e E para interagir.
-      </p>
+      <ul class="rules">
+        <li>Explore as salas clicando nos objetos.</li>
+        <li>Resolva os puzzles para encontrar pistas e itens.</li>
+        <li>Use o inventário quando encontrar algo importante.</li>
+        <li>Você terá <strong>15 minutos</strong> para escapar.</li>
+        <li>O botão <strong>DICA</strong> pode ajudar.</li>
+        <li>A senha final possui <strong>4 dígitos</strong>.</li>
+      </ul>
 
-      <p>
-        ⏱️ Você tem <b>15 minutos</b> para escapar.
-      </p>
-
-      <button id="backButton" class="secondary-button">
-        VOLTAR
+      <button class="primary-btn" data-close="howScreen">
+        ENTENDI
       </button>
 
     </div>
+
   </section>
 
 
   <!-- JOGO -->
-  <main id="game" class="hidden">
+  <section id="gameScreen" class="screen game-screen" aria-label="Escape room 2D da escola">
 
-    <canvas id="gameCanvas"></canvas>
+    <header class="topbar">
 
-    <!-- HUD -->
-    <div id="hud">
+      <div>
+        <div class="game-title">
+          ESCAPE SCHOOL
+        </div>
 
-      <div class="hud-top">
+        <div id="locationName" class="location">
+          Sala de Aula
+        </div>
+      </div>
 
-        <div class="hud-box objective-box">
+      <div class="hud">
+
+        <div class="hud-box">
+          <span>⏱</span>
+          <b id="timer">15:00</b>
+        </div>
+
+        <button id="hintBtn" class="hud-btn">
+          💡 DICA <span id="hintCount">3</span>
+        </button>
+
+        <button id="soundBtn" class="hud-btn" aria-pressed="true">
+          🔊 SOM
+        </button>
+
+        <button id="restartBtn" class="hud-btn">
+          ↻ REINICIAR
+        </button>
+
+      </div>
+
+    </header>
+
+
+    <div class="game-layout">
+
+      <!-- MENU LATERAL -->
+      <aside class="sidebar">
+
+        <div class="side-title">
+          MAPA
+        </div>
+
+        <div id="mapButtons" class="map-buttons"></div>
+
+
+        <div class="side-title inventory-title">
+          INVENTÁRIO
+        </div>
+
+        <div id="inventory" class="inventory"></div>
+
+
+        <div class="objective">
+
           <small>OBJETIVO</small>
-          <strong id="objective">
-            Encontre a pista azul.
-          </strong>
+
+          <p id="objectiveText">
+            Encontre uma forma de abrir a porta da sala.
+          </p>
+
         </div>
 
-        <div class="hud-box timer-box">
-          <small>TEMPO</small>
-          <strong id="timer">
-            15:00
-          </strong>
+      </aside>
+
+
+      <!-- SALA -->
+      <section class="room-wrap">
+
+        <div id="room" class="room"></div>
+
+        <div class="statusbar">
+
+          <span id="progressText">
+            Progresso: 0%
+          </span>
+
+          <span id="messageText">
+            Explore a sala.
+          </span>
+
         </div>
 
-      </div>
-
-
-      <div id="crosshair"></div>
-
-
-      <div id="interactionPrompt">
-        E — INTERAGIR
-      </div>
-
-
-      <div id="message"></div>
-
-
-      <div id="inventory">
-        <small>INVENTÁRIO</small>
-        <div id="inventoryItems"></div>
-      </div>
-
-
-      <div id="location">
-        ESCOLA • CORREDOR
-      </div>
+      </section>
 
     </div>
 
-
-    <!-- CONTROLES MOBILE -->
-
-    <div id="mobileControls">
-
-      <div id="joystick">
-        <div id="joystickStick"></div>
-      </div>
-
-      <button id="interactButton">
-        E
-      </button>
-
-      <button id="runButton">
-        RUN
-      </button>
-
-    </div>
-
-  </main>
-
-
-  <!-- MODAL DO COFRE -->
-
-  <div id="codeModal" class="modal hidden">
-
-    <div class="modal-card">
-
-      <div class="safe-icon">
-        🔐
-      </div>
-
-      <h2>COFRE</h2>
-
-      <p>
-        Digite o código de quatro números
-        encontrado através das pistas.
-      </p>
-
-      <input
-        id="codeInput"
-        type="tel"
-        maxlength="4"
-        inputmode="numeric"
-        placeholder="0000"
-      >
-
-      <button id="openSafeButton" class="primary-button">
-        ABRIR COFRE
-      </button>
-
-      <button id="cancelCodeButton" class="secondary-button">
-        CANCELAR
-      </button>
-
-    </div>
-
-  </div>
+  </section>
 
 
   <!-- VITÓRIA -->
+  <section id="winScreen" class="screen">
 
-  <section id="winScreen" class="screen hidden">
-
-    <div class="menu-card result-card">
+    <div class="result-card">
 
       <div class="result-icon">
-        🚪
+        🔓
       </div>
 
-      <h1>VOCÊ ESCAPOU!</h1>
+      <div class="eyebrow">
+        PORTÃO DESBLOQUEADO
+      </div>
 
-      <p>
-        Você encontrou todas as pistas,
-        descobriu o código e conseguiu sair da escola.
-      </p>
+      <h2>
+        VOCÊ ESCAPOU!
+      </h2>
 
-      <button
-        id="restartWin"
-        class="primary-button"
-      >
+      <p id="winSummary"></p>
+
+      <div class="score-box">
+
+        <span>PONTUAÇÃO</span>
+
+        <strong id="finalScore">
+          0
+        </strong>
+
+      </div>
+
+      <button id="playAgainBtn" class="primary-btn">
         JOGAR NOVAMENTE
       </button>
 
@@ -219,25 +210,28 @@
 
 
   <!-- DERROTA -->
+  <section id="loseScreen" class="screen">
 
-  <section id="loseScreen" class="screen hidden">
-
-    <div class="menu-card result-card">
+    <div class="result-card">
 
       <div class="result-icon">
         ⏰
       </div>
 
-      <h1>O TEMPO ACABOU</h1>
+      <div class="eyebrow">
+        O TEMPO ACABOU
+      </div>
+
+      <h2>
+        VOCÊ NÃO CONSEGUIU SAIR
+      </h2>
 
       <p>
-        Você não conseguiu escapar a tempo.
+        O relógio chegou a zero.
+        Tente novamente e use as pistas com mais estratégia.
       </p>
 
-      <button
-        id="restartLose"
-        class="primary-button"
-      >
+      <button id="tryAgainBtn" class="primary-btn">
         TENTAR NOVAMENTE
       </button>
 
@@ -245,8 +239,26 @@
 
   </section>
 
+</main>
 
-  <script src="script.js"></script>
+
+<!-- JANELA DOS PUZZLES -->
+<div id="modal" class="modal hidden">
+
+  <div class="modal-card">
+
+    <button id="modalClose" class="close-btn">
+      ×
+    </button>
+
+    <div id="modalContent"></div>
+
+  </div>
+
+</div>
+
+
+<script src="script.js"></script>
 
 </body>
 </html>
