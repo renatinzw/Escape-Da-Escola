@@ -1,598 +1,252 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#090b18">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    >
+  <title>ESCAPE DA ESCOLA — Depois do Sinal</title>
 
-    <title>Escape da Escola — Depois do Sinal</title>
-
-    <meta
-        name="description"
-        content="Escape da Escola — um jogo 3D de enigmas, exploração e suspense."
-    >
-
-    <link rel="stylesheet" href="style.css">
-
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js"
-        }
-    }
-    </script>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<!-- ======================================================
-     CARREGAMENTO
-====================================================== -->
-
-<div id="loading">
-    <div class="loading-box">
-
-        <div class="loading-icon">🏫</div>
-
-        <h2>ESCAPE DA ESCOLA</h2>
-
-        <p>Preparando o ambiente...</p>
-
-        <div class="loading-bar">
-            <div id="loadingProgress"></div>
-        </div>
-
-        <span id="loadingText">
-            Carregando...
-        </span>
-
-    </div>
-</div>
-
-
-<!-- ======================================================
-     TELA INICIAL
-====================================================== -->
-
-<div id="startScreen" class="overlay">
-
+  <!-- TELA INICIAL -->
+  <section id="startScreen" class="screen">
     <div class="menu-card">
 
-        <div class="logo">
+      <div class="school-label">
+        FEXTEC • DESENVOLVIMENTO DE SISTEMAS
+      </div>
 
-            <div class="logo-icon">
-                🏫
-            </div>
+      <h1>ESCAPE DA ESCOLA</h1>
 
-            <div>
-                <small>PROJETO FEXTEC</small>
+      <h2>Depois do Sinal</h2>
 
-                <h1>
-                    ESCAPE DA<br>
-                    ESCOLA
-                </h1>
-            </div>
+      <p>
+        O último sinal tocou.
+        A escola está vazia e os portões estão trancados.
+      </p>
 
-        </div>
+      <p class="description">
+        Explore os corredores, encontre as pistas, descubra
+        o código do cofre e consiga escapar antes que o tempo acabe.
+      </p>
 
+      <button id="startButton" class="primary-button">
+        ENTRAR NA ESCOLA
+      </button>
 
-        <p class="intro">
-            O último sinal tocou.
-            A escola ficou vazia.
-            Porém, você ainda está lá dentro.
-            As portas foram trancadas.
-        </p>
-
-        <p class="intro">
-            Explore o prédio, encontre pistas,
-            resolva os enigmas e descubra o código
-            necessário para escapar.
-        </p>
-
-
-        <div class="warning-box">
-
-            <span>⚠️</span>
-
-            <div>
-                <strong>ATENÇÃO</strong>
-
-                <p>
-                    Você tem 15 minutos para escapar.
-                </p>
-            </div>
-
-        </div>
-
-
-        <div class="controls-grid">
-
-            <div class="control">
-                <b>W A S D</b>
-                <span>Movimento</span>
-            </div>
-
-            <div class="control">
-                <b>MOUSE</b>
-                <span>Olhar</span>
-            </div>
-
-            <div class="control">
-                <b>E</b>
-                <span>Interagir</span>
-            </div>
-
-            <div class="control">
-                <b>SHIFT</b>
-                <span>Correr</span>
-            </div>
-
-            <div class="control">
-                <b>F</b>
-                <span>Lanterna</span>
-            </div>
-
-            <div class="control">
-                <b>ESC</b>
-                <span>Pausar</span>
-            </div>
-
-        </div>
-
-
-        <button
-            id="startButton"
-            class="primary-button"
-        >
-            ENTRAR NA ESCOLA
-        </button>
-
-
-        <button
-            id="continueButton"
-            class="secondary-button hidden"
-        >
-            CONTINUAR JOGO
-        </button>
-
-
-        <p class="version">
-            ESCAPE DA ESCOLA · v3.0
-        </p>
+      <button id="howButton" class="secondary-button">
+        COMO JOGAR
+      </button>
 
     </div>
+  </section>
 
-</div>
+
+  <!-- COMO JOGAR -->
+  <section id="howScreen" class="screen hidden">
+    <div class="menu-card">
+
+      <h2>COMO JOGAR</h2>
+
+      <p>
+        🕹️ <b>Celular:</b> use o joystick para andar e
+        arraste o lado direito da tela para olhar.
+      </p>
+
+      <p>
+        👆 Aproxime-se dos objetos brilhantes e toque no botão
+        <b>E</b> para interagir.
+      </p>
+
+      <p>
+        💻 <b>Computador:</b> use WASD para andar,
+        mouse para olhar e E para interagir.
+      </p>
+
+      <p>
+        ⏱️ Você tem <b>15 minutos</b> para escapar.
+      </p>
+
+      <button id="backButton" class="secondary-button">
+        VOLTAR
+      </button>
+
+    </div>
+  </section>
 
 
-<!-- ======================================================
-     JOGO
-====================================================== -->
+  <!-- JOGO -->
+  <main id="game" class="hidden">
 
-<div id="hud" class="hidden">
+    <canvas id="gameCanvas"></canvas>
 
-    <div class="top-bar">
+    <!-- HUD -->
+    <div id="hud">
 
-        <div class="brand-mini">
-            🏫 ESCAPE DA ESCOLA
+      <div class="hud-top">
+
+        <div class="hud-box objective-box">
+          <small>OBJETIVO</small>
+          <strong id="objective">
+            Encontre a pista azul.
+          </strong>
         </div>
 
-
-        <div class="objective-box">
-
-            <span>
-                OBJETIVO ATUAL
-            </span>
-
-            <strong id="objective">
-                Encontre uma pista.
-            </strong>
-
+        <div class="hud-box timer-box">
+          <small>TEMPO</small>
+          <strong id="timer">
+            15:00
+          </strong>
         </div>
 
+      </div>
 
-        <div class="timer-box">
 
-            <span>
-                TEMPO
-            </span>
+      <div id="crosshair"></div>
 
-            <strong id="timer">
-                15:00
-            </strong>
 
-        </div>
+      <div id="interactionPrompt">
+        E — INTERAGIR
+      </div>
+
+
+      <div id="message"></div>
+
+
+      <div id="inventory">
+        <small>INVENTÁRIO</small>
+        <div id="inventoryItems"></div>
+      </div>
+
+
+      <div id="location">
+        ESCOLA • CORREDOR
+      </div>
 
     </div>
 
 
-    <!-- Mira -->
+    <!-- CONTROLES MOBILE -->
 
-    <div id="crosshair">
-        <span></span>
-    </div>
+    <div id="mobileControls">
 
+      <div id="joystick">
+        <div id="joystickStick"></div>
+      </div>
 
-    <!-- Interação -->
+      <button id="interactButton">
+        E
+      </button>
 
-    <div id="interactionPrompt">
-
-        <kbd>E</kbd>
-
-        <span id="interactionText">
-            Interagir
-        </span>
-
-    </div>
-
-
-    <!-- Mensagens -->
-
-    <div id="messageContainer"></div>
-
-
-    <!-- Lanterna -->
-
-    <div class="bottom-left">
-
-        <div class="status-panel">
-
-            <div class="status-title">
-                🔦 LANTERNA
-            </div>
-
-            <div class="energy-bar">
-                <div id="energyFill"></div>
-            </div>
-
-            <span id="energyText">
-                100%
-            </span>
-
-        </div>
+      <button id="runButton">
+        RUN
+      </button>
 
     </div>
 
-
-    <!-- Inventário -->
-
-    <div class="bottom-right">
-
-        <div class="inventory">
-
-            <div class="inventory-header">
-
-                <span>
-                    INVENTÁRIO
-                </span>
-
-                <small id="itemCount">
-                    0/8
-                </small>
-
-            </div>
-
-            <div id="inventoryItems">
-            </div>
-
-        </div>
-
-    </div>
+  </main>
 
 
-    <div id="locationName">
-        ENTRADA
-    </div>
+  <!-- MODAL DO COFRE -->
 
+  <div id="codeModal" class="modal hidden">
 
-    <div id="saveIndicator">
-        ✓ JOGO SALVO
-    </div>
+    <div class="modal-card">
 
+      <div class="safe-icon">
+        🔐
+      </div>
 
-    <!-- Controles mobile -->
+      <h2>COFRE</h2>
 
-    <div id="mobileControls" class="hidden">
+      <p>
+        Digite o código de quatro números
+        encontrado através das pistas.
+      </p>
 
-        <div id="joystick">
-            <div id="joystickKnob"></div>
-        </div>
+      <input
+        id="codeInput"
+        type="tel"
+        maxlength="4"
+        inputmode="numeric"
+        placeholder="0000"
+      >
 
-        <button id="mobileInteract">
-            E
-        </button>
+      <button id="openSafeButton" class="primary-button">
+        ABRIR COFRE
+      </button>
 
-        <button id="mobileFlashlight">
-            🔦
-        </button>
+      <button id="cancelCodeButton" class="secondary-button">
+        CANCELAR
+      </button>
 
     </div>
 
-</div>
+  </div>
 
 
-<!-- ======================================================
-     PAUSA
-====================================================== -->
+  <!-- VITÓRIA -->
 
-<div id="pauseScreen" class="overlay hidden">
+  <section id="winScreen" class="screen hidden">
 
-    <div class="pause-card">
+    <div class="menu-card result-card">
 
-        <div class="pause-icon">
-            ⏸️
-        </div>
+      <div class="result-icon">
+        🚪
+      </div>
 
-        <h1>
-            PAUSADO
-        </h1>
+      <h1>VOCÊ ESCAPOU!</h1>
 
-        <p>
-            O jogo está pausado.
-        </p>
+      <p>
+        Você encontrou todas as pistas,
+        descobriu o código e conseguiu sair da escola.
+      </p>
 
-        <button
-            id="resumeButton"
-            class="primary-button"
-        >
-            CONTINUAR
-        </button>
-
-        <button
-            id="restartButton"
-            class="secondary-button"
-        >
-            RECOMEÇAR
-        </button>
+      <button
+        id="restartWin"
+        class="primary-button"
+      >
+        JOGAR NOVAMENTE
+      </button>
 
     </div>
 
-</div>
+  </section>
 
 
-<!-- ======================================================
-     MODAL DE PISTA
-====================================================== -->
+  <!-- DERROTA -->
 
-<div id="noteModal" class="modal hidden">
+  <section id="loseScreen" class="screen hidden">
 
-    <div class="modal-card note">
+    <div class="menu-card result-card">
 
-        <button
-            class="close-button"
-            id="closeNote"
-        >
-            ×
-        </button>
+      <div class="result-icon">
+        ⏰
+      </div>
 
-        <div class="paper">
+      <h1>O TEMPO ACABOU</h1>
 
-            <div class="paper-pin">
-                📌
-            </div>
+      <p>
+        Você não conseguiu escapar a tempo.
+      </p>
 
-            <div id="noteIcon" class="note-icon">
-                📄
-            </div>
-
-            <h2 id="noteTitle">
-                Bilhete
-            </h2>
-
-            <div id="noteContent">
-            </div>
-
-            <div class="paper-line">
-            </div>
-
-            <button
-                id="continueNote"
-                class="primary-button"
-            >
-                FECHAR
-            </button>
-
-        </div>
+      <button
+        id="restartLose"
+        class="primary-button"
+      >
+        TENTAR NOVAMENTE
+      </button>
 
     </div>
 
-</div>
+  </section>
 
 
-<!-- ======================================================
-     MODAL DO COFRE
-====================================================== -->
-
-<div id="codeModal" class="modal hidden">
-
-    <div class="modal-card safe-modal">
-
-        <button
-            class="close-button"
-            id="closeCode"
-        >
-            ×
-        </button>
-
-        <div class="safe-icon">
-            🔐
-        </div>
-
-        <span class="modal-label">
-            SISTEMA DE SEGURANÇA
-        </span>
-
-        <h2>
-            COFRE
-        </h2>
-
-        <p>
-            Digite o código de quatro números.
-        </p>
-
-
-        <div id="codeDisplay">
-
-            <span>_</span>
-            <span>_</span>
-            <span>_</span>
-            <span>_</span>
-
-        </div>
-
-
-        <input
-            id="codeInput"
-            type="text"
-            maxlength="4"
-            inputmode="numeric"
-            autocomplete="off"
-            aria-label="Código do cofre"
-        >
-
-
-        <p id="codeFeedback">
-        </p>
-
-
-        <button
-            id="submitCode"
-            class="primary-button"
-        >
-            DESBLOQUEAR
-        </button>
-
-    </div>
-
-</div>
-
-
-<!-- ======================================================
-     VITÓRIA
-====================================================== -->
-
-<div id="winScreen" class="overlay hidden">
-
-    <div class="result-card victory">
-
-        <div class="result-icon">
-            🎉
-        </div>
-
-        <span class="result-label">
-            MISSÃO CONCLUÍDA
-        </span>
-
-        <h1>
-            VOCÊ ESCAPOU!
-        </h1>
-
-        <p>
-            Você encontrou as pistas,
-            resolveu os enigmas e conseguiu
-            sair da escola.
-        </p>
-
-
-        <div class="stats">
-
-            <div>
-
-                <span>
-                    TEMPO RESTANTE
-                </span>
-
-                <strong id="finalTime">
-                    00:00
-                </strong>
-
-            </div>
-
-
-            <div>
-
-                <span>
-                    ITENS ENCONTRADOS
-                </span>
-
-                <strong id="finalItems">
-                    0
-                </strong>
-
-            </div>
-
-        </div>
-
-
-        <button
-            id="winRestart"
-            class="primary-button"
-        >
-            JOGAR NOVAMENTE
-        </button>
-
-    </div>
-
-</div>
-
-
-<!-- ======================================================
-     DERROTA
-====================================================== -->
-
-<div id="loseScreen" class="overlay hidden">
-
-    <div class="result-card defeat">
-
-        <div class="result-icon">
-            ⏰
-        </div>
-
-        <span class="result-label">
-            FIM DE JOGO
-        </span>
-
-        <h1>
-            O TEMPO ACABOU
-        </h1>
-
-        <p>
-            As portas continuam trancadas.
-            Tente novamente e veja se consegue
-            escapar antes que o tempo termine.
-        </p>
-
-
-        <button
-            id="loseRestart"
-            class="primary-button"
-        >
-            TENTAR NOVAMENTE
-        </button>
-
-    </div>
-
-</div>
-
-
-<!-- ======================================================
-     EFEITOS
-====================================================== -->
-
-<div id="flashOverlay">
-</div>
-
-<div id="vignette">
-</div>
-
-
-<script
-    type="module"
-    src="script.js"
-></script>
+  <script src="script.js"></script>
 
 </body>
 </html>
