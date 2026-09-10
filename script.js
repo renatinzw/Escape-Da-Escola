@@ -1,1027 +1,272 @@
-import * as THREE from "three";
+/* =========================================================
+   ESCAPE DA ESCOLA
+   Jogo feito somente com HTML + CSS + JavaScript + Canvas
+   SEM THREE.JS
+========================================================= */
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const startScreen = document.getElementById("startScreen");
+const howScreen = document.getElementById("howScreen");
+const game = document.getElementById("game");
+
+const startButton = document.getElementById("startButton");
+const howButton = document.getElementById("howButton");
+const backButton = document.getElementById("backButton");
+
+const objectiveElement = document.getElementById("objective");
+const timerElement = document.getElementById("timer");
+const promptElement = document.getElementById("interactionPrompt");
+const messageElement = document.getElementById("message");
+
+const inventoryElement = document.getElementById("inventoryItems");
+
+const joystick = document.getElementById("joystick");
+const joystickStick = document.getElementById("joystickStick");
+
+const interactButton = document.getElementById("interactButton");
+const runButton = document.getElementById("runButton");
+
+const codeModal = document.getElementById("codeModal");
+const codeInput = document.getElementById("codeInput");
+
+const openSafeButton = document.getElementById("openSafeButton");
+const cancelCodeButton = document.getElementById("cancelCodeButton");
+
+const winScreen = document.getElementById("winScreen");
+const loseScreen = document.getElementById("loseScreen");
+
+const restartWin = document.getElementById("restartWin");
+const restartLose = document.getElementById("restartLose");
 
 
 /* =========================================================
-   CONFIGURAÇÕES
+   CANVAS
 ========================================================= */
 
-const GAME_TIME = 15 * 60;
+let width = window.innerWidth;
+let height = window.innerHeight;
 
-const FINAL_CODE = "4271";
+function resizeCanvas() {
 
-let timeLeft = GAME_TIME;
+  width = window.innerWidth;
+  height = window.innerHeight;
 
-let gameStarted = false;
-let gamePaused = false;
-let gameEnded = false;
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
-let flashlightOn = true;
+  canvas.width = width * pixelRatio;
+  canvas.height = height * pixelRatio;
 
-let energy = 100;
+  canvas.style.width = width + "px";
+  canvas.style.height = height + "px";
 
-let lastTime = performance.now();
+  ctx.setTransform(
+    pixelRatio,
+    0,
+    0,
+    pixelRatio,
+    0,
+    0
+  );
+}
+
+window.addEventListener("resize", resizeCanvas);
+
+resizeCanvas();
+
+
+/* =========================================================
+   ESTADO DO JOGO
+========================================================= */
+
+let playing = false;
+let finished = false;
+
+let timeLeft = 15 * 60;
+
+let player = {
+  x: 0,
+  y: 12,
+  angle: Math.PI
+};
+
+let joystickX = 0;
+let joystickY = 0;
+
+let running = false;
 
 const keys = {};
 
+
+/* =========================================================
+   MAPA
+========================================================= */
+
+const map = {
+
+  width: 30,
+  height: 34,
+
+  walls: [
+
+    // paredes externas
+    {
+      x: 0,
+      y: -17,
+      width: 30,
+      height: 1
+    },
+
+    {
+      x: -15,
+      y: 0,
+      width: 1,
+      height: 34
+    },
+
+    {
+      x: 15,
+      y: 0,
+      width: 1,
+      height: 34
+    },
+
+    {
+      x: 0,
+      y: 17,
+      width: 30,
+      height: 1
+    },
+
+    // parede interna esquerda
+    {
+      x: -7,
+      y: -7,
+      width: 1,
+      height: 13
+    },
+
+    // parede interna direita
+    {
+      x: 7,
+      y: 7,
+      width: 1,
+      height: 13
+    }
+
+  ]
+
+};
+
+
+/* =========================================================
+   OBJETOS
+========================================================= */
+
+const objects = [
+
+  {
+    type: "clue1",
+    x: -10,
+    y: -10,
+    color: "#4c79ff",
+    name: "Pista azul",
+    active: true
+  },
+
+  {
+    type: "key",
+    x: 6,
+    y: -11,
+    color: "#ffd447",
+    name: "Chave",
+    active: true
+  },
+
+  {
+    type: "clue2",
+    x: 11,
+    y: -8,
+    color: "#51df87",
+    name: "Pista 2",
+    active: true
+  },
+
+  {
+    type: "final",
+    x: -9,
+    y: 10,
+    color: "#eeeeee",
+    name: "Pista final",
+    active: true
+  },
+
+  {
+    type: "safe",
+    x: 10,
+    y: 10,
+    color: "#df5368",
+    name: "Cofre",
+    active: true
+  }
+
+];
+
+
+/* =========================================================
+   INVENTÁRIO
+========================================================= */
+
 const inventory = [];
 
+function addInventory(name) {
 
-/* =========================================================
-   THREE.JS
-========================================================= */
+  if (inventory.includes(name)) {
+    return;
+  }
 
-const scene = new THREE.Scene();
+  inventory.push(name);
 
-scene.background = new THREE.Color(0x050b16);
+  const item = document.createElement("div");
 
-scene.fog = new THREE.FogExp2(
-    0x050b16,
-    0.035
-);
+  item.className = "inventory-item";
 
+  item.textContent = name;
 
-const camera = new THREE.PerspectiveCamera(
-    70,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    200
-);
-
-camera.position.set(
-    0,
-    1.7,
-    12
-);
-
-
-const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    powerPreference: "high-performance"
-});
-
-renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-);
-
-renderer.setPixelRatio(
-    Math.min(window.devicePixelRatio, 2)
-);
-
-renderer.shadowMap.enabled = true;
-
-renderer.shadowMap.type =
-    THREE.PCFSoftShadowMap;
-
-renderer.outputColorSpace =
-    THREE.SRGBColorSpace;
-
-renderer.toneMapping =
-    THREE.ACESFilmicToneMapping;
-
-renderer.toneMappingExposure = 1.1;
-
-renderer.domElement.id = "game";
-
-document.body.insertBefore(
-    renderer.domElement,
-    document.body.firstChild
-);
-
-
-/* =========================================================
-   LUZ
-========================================================= */
-
-const ambientLight =
-    new THREE.HemisphereLight(
-        0x9bbcff,
-        0x080b12,
-        0.32
-    );
-
-scene.add(ambientLight);
-
-
-const flashlight =
-    new THREE.SpotLight(
-        0xeaf7ff,
-        9,
-        32,
-        Math.PI / 7,
-        0.55,
-        1.4
-    );
-
-flashlight.position.set(
-    0,
-    1.7,
-    12
-);
-
-flashlight.castShadow = true;
-
-flashlight.shadow.mapSize.width = 1024;
-flashlight.shadow.mapSize.height = 1024;
-
-scene.add(flashlight);
-
-scene.add(flashlight.target);
-
-
-/* =========================================================
-   MATERIAIS
-========================================================= */
-
-const materials = {
-
-    floor: new THREE.MeshStandardMaterial({
-        color: 0x202b38,
-        roughness: .9
-    }),
-
-    wall: new THREE.MeshStandardMaterial({
-        color: 0x273444,
-        roughness: .8
-    }),
-
-    wallDark: new THREE.MeshStandardMaterial({
-        color: 0x111a27,
-        roughness: .9
-    }),
-
-    ceiling: new THREE.MeshStandardMaterial({
-        color: 0x101722,
-        roughness: 1
-    }),
-
-    wood: new THREE.MeshStandardMaterial({
-        color: 0x583c2b,
-        roughness: .8
-    }),
-
-    metal: new THREE.MeshStandardMaterial({
-        color: 0x64748b,
-        metalness: .7,
-        roughness: .35
-    }),
-
-    desk: new THREE.MeshStandardMaterial({
-        color: 0x573d2d,
-        roughness: .75
-    }),
-
-    blue: new THREE.MeshStandardMaterial({
-        color: 0x2563eb,
-        roughness: .45
-    }),
-
-    green: new THREE.MeshStandardMaterial({
-        color: 0x16a34a,
-        roughness: .5
-    }),
-
-    red: new THREE.MeshStandardMaterial({
-        color: 0xdc2626,
-        roughness: .5
-    }),
-
-    white: new THREE.MeshStandardMaterial({
-        color: 0xdbeafe,
-        roughness: .6
-    }),
-
-    black: new THREE.MeshStandardMaterial({
-        color: 0x020617,
-        roughness: .9
-    })
-
-};
-
-
-/* =========================================================
-   FUNÇÕES DE OBJETOS
-========================================================= */
-
-const colliders = [];
-
-const interactables = [];
-
-const lights = [];
-
-
-function box(
-    x,
-    y,
-    z,
-    w,
-    h,
-    d,
-    material,
-    collide = true
-) {
-
-    const geometry =
-        new THREE.BoxGeometry(
-            w,
-            h,
-            d
-        );
-
-    const mesh =
-        new THREE.Mesh(
-            geometry,
-            material
-        );
-
-    mesh.position.set(
-        x,
-        y,
-        z
-    );
-
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    scene.add(mesh);
-
-    if (collide) {
-
-        colliders.push({
-            mesh,
-            halfX: w / 2,
-            halfZ: d / 2
-        });
-
-    }
-
-    return mesh;
-}
-
-
-function addCeilingLight(
-    x,
-    z
-) {
-
-    const fixture =
-        box(
-            x,
-            4.85,
-            z,
-            1.6,
-            .08,
-            .3,
-            materials.white,
-            false
-        );
-
-    const light =
-        new THREE.PointLight(
-            0xcfe9ff,
-            1.2,
-            9
-        );
-
-    light.position.set(
-        x,
-        4.7,
-        z
-    );
-
-    light.castShadow = true;
-
-    scene.add(light);
-
-    lights.push(light);
-
-    return fixture;
+  inventoryElement.appendChild(item);
 }
 
 
 /* =========================================================
-   CHÃO
+   OBJETIVO
 ========================================================= */
 
-box(
-    0,
-    -0.15,
-    0,
-    34,
-    .3,
-    42,
-    materials.floor,
-    false
-);
+function setObjective(text) {
 
-
-/* =========================================================
-   TETO
-========================================================= */
-
-box(
-    0,
-    5.2,
-    0,
-    34,
-    .25,
-    42,
-    materials.ceiling,
-    false
-);
-
-
-/* =========================================================
-   PAREDES EXTERNAS
-========================================================= */
-
-box(
-    0,
-    2.5,
-    -20,
-    34,
-    5,
-    .5,
-    materials.wall
-);
-
-box(
-    -17,
-    2.5,
-    0,
-    .5,
-    5,
-    40,
-    materials.wall
-);
-
-box(
-    17,
-    2.5,
-    0,
-    .5,
-    5,
-    40,
-    materials.wall
-);
-
-
-/* =========================================================
-   DIVISÕES DA ESCOLA
-========================================================= */
-
-/* Parede central */
-
-box(
-    -6,
-    2.5,
-    4,
-    11,
-    5,
-    .35,
-    materials.wall
-);
-
-box(
-    6,
-    2.5,
-    4,
-    11,
-    5,
-    .35,
-    materials.wall
-);
-
-
-/* Parede lateral esquerda */
-
-box(
-    -11,
-    2.5,
-    -8,
-    .35,
-    5,
-    16,
-    materials.wall
-);
-
-
-/* Parede lateral direita */
-
-box(
-    11,
-    2.5,
-    -8,
-    .35,
-    5,
-    16,
-    materials.wall
-);
-
-
-/* =========================================================
-   SALA DE AULA
-========================================================= */
-
-for (
-    let z = -15;
-    z <= -7;
-    z += 2.4
-) {
-
-    box(
-        -5,
-        .85,
-        z,
-        2.1,
-        .15,
-        1,
-        materials.desk
-    );
-
-    box(
-        -5,
-        .4,
-        z + .35,
-        .12,
-        .8,
-        .12,
-        materials.metal
-    );
-
-    box(
-        -5,
-        .4,
-        z - .35,
-        .12,
-        .8,
-        .12,
-        materials.metal
-    );
-
-}
-
-
-box(
-    -5,
-    2.4,
-    -18.8,
-    5,
-    1.8,
-    .12,
-    materials.black
-);
-
-
-/* =========================================================
-   OUTRA SALA
-========================================================= */
-
-for (
-    let z = -15;
-    z <= -8;
-    z += 2.3
-) {
-
-    box(
-        6,
-        .85,
-        z,
-        2.1,
-        .15,
-        1,
-        materials.desk
-    );
-
+  objectiveElement.textContent = text;
 }
 
 
 /* =========================================================
-   ARMÁRIOS
+   MENSAGEM
 ========================================================= */
 
-for (
-    let z = -13;
-    z <= -7;
-    z += 1.7
-) {
+let messageTimeout;
 
-    box(
-        13,
-        1.4,
-        z,
-        1,
-        2.8,
-        1.2,
-        materials.blue
-    );
+function showMessage(text) {
 
-}
+  messageElement.textContent = text;
 
+  messageElement.style.opacity = "1";
 
-/* =========================================================
-   PORTA FINAL
-========================================================= */
+  clearTimeout(messageTimeout);
 
-const exitDoor =
-    box(
-        0,
-        2,
-        -19.65,
-        3.4,
-        4,
-        .35,
-        materials.red
-    );
+  messageTimeout = setTimeout(() => {
 
-exitDoor.name = "exitDoor";
+    messageElement.style.opacity = "0";
 
-
-/* =========================================================
-   PLACA DA SAÍDA
-========================================================= */
-
-const exitSign =
-    box(
-        0,
-        4,
-        -19.35,
-        2.3,
-        .6,
-        .08,
-        materials.green,
-        false
-    );
-
-
-/* =========================================================
-   LUZES
-========================================================= */
-
-for (
-    let x = -12;
-    x <= 12;
-    x += 6
-) {
-
-    for (
-        let z = -15;
-        z <= 15;
-        z += 6
-    ) {
-
-        addCeilingLight(
-            x,
-            z
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   OBJETOS INTERATIVOS
-========================================================= */
-
-function createInteractable(
-    name,
-    position,
-    type,
-    message,
-    icon = "📦"
-) {
-
-    const mesh =
-        new THREE.Mesh(
-            new THREE.BoxGeometry(
-                .65,
-                .65,
-                .65
-            ),
-            new THREE.MeshStandardMaterial({
-                color: 0x38bdf8,
-                emissive: 0x063b5a,
-                emissiveIntensity: .8
-            })
-        );
-
-    mesh.position.copy(position);
-
-    mesh.castShadow = true;
-
-    mesh.userData = {
-        name,
-        type,
-        message,
-        icon,
-        collected: false
-    };
-
-    scene.add(mesh);
-
-    interactables.push(mesh);
-
-    return mesh;
-}
-
-
-/* =========================================================
-   PISTAS
-========================================================= */
-
-const note1 =
-    createInteractable(
-        "Bilhete da sala",
-        new THREE.Vector3(
-            -5,
-            1.3,
-            -10
-        ),
-        "note1",
-        "Primeira pista encontrada.",
-        "📄"
-    );
-
-
-const key =
-    createInteractable(
-        "Chave azul",
-        new THREE.Vector3(
-            6,
-            1.3,
-            -11
-        ),
-        "key",
-        "Você encontrou uma chave.",
-        "🔑"
-    );
-
-
-const note2 =
-    createInteractable(
-        "Bilhete do armário",
-        new THREE.Vector3(
-            13,
-            2,
-            -8
-        ),
-        "note2",
-        "Há números escritos no bilhete.",
-        "📝"
-    );
-
-
-const battery =
-    createInteractable(
-        "Bateria",
-        new THREE.Vector3(
-            -8,
-            .7,
-            10
-        ),
-        "battery",
-        "Bateria encontrada. A lanterna foi recarregada.",
-        "🔋"
-    );
-
-
-const finalNote =
-    createInteractable(
-        "Última pista",
-        new THREE.Vector3(
-            8,
-            1,
-            10
-        ),
-        "finalNote",
-        "Esta parece ser a última pista.",
-        "📜"
-    );
-
-
-/* =========================================================
-   COFRE
-========================================================= */
-
-const safe =
-    createInteractable(
-        "Cofre",
-        new THREE.Vector3(
-            12,
-            1.3,
-            10
-        ),
-        "safe",
-        "Um cofre está trancado.",
-        "🔐"
-    );
-
-
-/* =========================================================
-   LUZES DOS OBJETOS
-========================================================= */
-
-interactables.forEach(
-    object => {
-
-        const light =
-            new THREE.PointLight(
-                0x38bdf8,
-                .6,
-                3
-            );
-
-        light.position.copy(
-            object.position
-        );
-
-        scene.add(light);
-
-    }
-);
-
-
-/* =========================================================
-   PLAYER
-========================================================= */
-
-const player = {
-
-    position: new THREE.Vector3(
-        0,
-        1.7,
-        14
-    ),
-
-    yaw: Math.PI,
-
-    pitch: 0,
-
-    speed: 4,
-
-    radius: .45
-
-};
-
-
-camera.position.copy(
-    player.position
-);
-
-
-/* =========================================================
-   CONTROLES
-========================================================= */
-
-window.addEventListener(
-    "keydown",
-    event => {
-
-        keys[event.code] = true;
-
-        if (
-            event.code === "Escape" &&
-            gameStarted &&
-            !gameEnded
-        ) {
-
-            togglePause();
-
-        }
-
-        if (
-            event.code === "KeyE" &&
-            gameStarted &&
-            !gamePaused &&
-            !gameEnded
-        ) {
-
-            interact();
-
-        }
-
-        if (
-            event.code === "KeyF" &&
-            gameStarted &&
-            !gamePaused
-        ) {
-
-            toggleFlashlight();
-
-        }
-
-    }
-);
-
-
-window.addEventListener(
-    "keyup",
-    event => {
-
-        keys[event.code] = false;
-
-    }
-);
-
-
-/* =========================================================
-   MOUSE
-========================================================= */
-
-let mouseLocked = false;
-
-renderer.domElement.addEventListener(
-    "click",
-    () => {
-
-        if (
-            gameStarted &&
-            !gamePaused &&
-            !isMobile()
-        ) {
-
-            renderer.domElement.requestPointerLock();
-
-        }
-
-    }
-);
-
-
-document.addEventListener(
-    "pointerlockchange",
-    () => {
-
-        mouseLocked =
-            document.pointerLockElement ===
-            renderer.domElement;
-
-    }
-);
-
-
-document.addEventListener(
-    "mousemove",
-    event => {
-
-        if (
-            !mouseLocked ||
-            !gameStarted ||
-            gamePaused
-        ) {
-            return;
-        }
-
-        player.yaw -=
-            event.movementX * .0022;
-
-        player.pitch -=
-            event.movementY * .0022;
-
-        player.pitch =
-            THREE.MathUtils.clamp(
-                player.pitch,
-                -.9,
-                .9
-            );
-
-    }
-);
-
-
-/* =========================================================
-   MOVIMENTO
-========================================================= */
-
-function movePlayer(
-    delta
-) {
-
-    const direction =
-        new THREE.Vector3();
-
-    const forward =
-        new THREE.Vector3(
-            -Math.sin(player.yaw),
-            0,
-            -Math.cos(player.yaw)
-        );
-
-    const right =
-        new THREE.Vector3(
-            Math.cos(player.yaw),
-            0,
-            -Math.sin(player.yaw)
-        );
-
-
-    if (keys["KeyW"]) {
-
-        direction.add(
-            forward
-        );
-
-    }
-
-    if (keys["KeyS"]) {
-
-        direction.sub(
-            forward
-        );
-
-    }
-
-    if (keys["KeyD"]) {
-
-        direction.add(
-            right
-        );
-
-    }
-
-    if (keys["KeyA"]) {
-
-        direction.sub(
-            right
-        );
-
-    }
-
-
-    if (
-        direction.lengthSq() === 0
-    ) {
-
-        return;
-
-    }
-
-
-    direction.normalize();
-
-
-    let speed =
-        player.speed;
-
-
-    if (
-        keys["ShiftLeft"] ||
-        keys["ShiftRight"]
-    ) {
-
-        speed = 6.5;
-
-        energy -=
-            delta * 9;
-
-    } else {
-
-        energy +=
-            delta * 4;
-
-    }
-
-
-    energy =
-        THREE.MathUtils.clamp(
-            energy,
-            0,
-            100
-        );
-
-
-    if (
-        energy <= 0
-    ) {
-
-        speed = 3;
-
-    }
-
-
-    const movement =
-        direction.multiplyScalar(
-            speed * delta
-        );
-
-
-    const next =
-        player.position.clone();
-
-    next.x += movement.x;
-    next.z += movement.z;
-
-
-    if (
-        !checkCollision(next)
-    ) {
-
-        player.position.copy(
-            next
-        );
-
-    }
+  }, 2800);
 
 }
 
@@ -1030,101 +275,82 @@ function movePlayer(
    COLISÃO
 ========================================================= */
 
-function checkCollision(
-    position
-) {
+function collision(x, y) {
 
-    for (
-        const collider of colliders
+  const radius = 0.45;
+
+  if (
+    x < -14.3 ||
+    x > 14.3 ||
+    y < -16.3 ||
+    y > 16.3
+  ) {
+
+    return true;
+  }
+
+
+  for (const wall of map.walls) {
+
+    if (
+      x > wall.x - wall.width / 2 - radius &&
+      x < wall.x + wall.width / 2 + radius &&
+      y > wall.y - wall.height / 2 - radius &&
+      y < wall.y + wall.height / 2 + radius
     ) {
 
-        const box =
-            collider.mesh;
-
-        const minX =
-            box.position.x -
-            collider.halfX -
-            player.radius;
-
-        const maxX =
-            box.position.x +
-            collider.halfX +
-            player.radius;
-
-        const minZ =
-            box.position.z -
-            collider.halfZ -
-            player.radius;
-
-        const maxZ =
-            box.position.z +
-            collider.halfZ +
-            player.radius;
-
-
-        if (
-            position.x > minX &&
-            position.x < maxX &&
-            position.z > minZ &&
-            position.z < maxZ
-        ) {
-
-            return true;
-
-        }
-
+      return true;
     }
 
-    return false;
+  }
+
+  return false;
+}
+
+
+/* =========================================================
+   DISTÂNCIA
+========================================================= */
+
+function distance(a, b) {
+
+  return Math.sqrt(
+    Math.pow(a.x - b.x, 2) +
+    Math.pow(a.y - b.y, 2)
+  );
 
 }
 
 
 /* =========================================================
-   CÂMERA
+   OBJETO MAIS PRÓXIMO
 ========================================================= */
 
-function updateCamera() {
+function getNearestObject() {
 
-    camera.position.copy(
-        player.position
-    );
+  let nearest = null;
 
+  let nearestDistance = 2;
 
-    camera.rotation.order =
-        "YXZ";
+  for (const object of objects) {
 
-    camera.rotation.y =
-        player.yaw;
+    if (!object.active) {
+      continue;
+    }
 
-    camera.rotation.x =
-        player.pitch;
+    const d = distance(player, object);
 
+    if (d < nearestDistance) {
 
-    const direction =
-        new THREE.Vector3(
-            0,
-            0,
-            -1
-        );
+      nearest = object;
 
-    direction.applyEuler(
-        camera.rotation
-    );
+      nearestDistance = d;
 
+    }
 
-    flashlight.position.copy(
-        camera.position
-    );
+  }
 
-    flashlight.target.position.copy(
-        camera.position
-            .clone()
-            .add(
-                direction.multiplyScalar(10)
-            )
-    );
-
+  return nearest;
 }
 
 
@@ -1132,1267 +358,1111 @@ function updateCamera() {
    INTERAÇÃO
 ========================================================= */
 
-function getNearestInteractable() {
-
-    let nearest = null;
-
-    let distance = Infinity;
-
-
-    for (
-        const object of interactables
-    ) {
-
-        if (
-            object.userData.collected
-        ) {
-
-            continue;
-
-        }
-
-
-        const d =
-            player.position.distanceTo(
-                object.position
-            );
-
-
-        if (
-            d < 2.4 &&
-            d < distance
-        ) {
-
-            nearest = object;
-
-            distance = d;
-
-        }
-
-    }
-
-
-    return nearest;
-
-}
-
-
-function updateInteraction() {
-
-    const object =
-        getNearestInteractable();
-
-    const prompt =
-        document.getElementById(
-            "interactionPrompt"
-        );
-
-    const text =
-        document.getElementById(
-            "interactionText"
-        );
-
-
-    if (
-        object &&
-        !gamePaused
-    ) {
-
-        prompt.classList.add(
-            "visible"
-        );
-
-        text.textContent =
-            object.userData.name;
-
-    } else {
-
-        prompt.classList.remove(
-            "visible"
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   INTERAGIR
-========================================================= */
-
 function interact() {
 
-    const object =
-        getNearestInteractable();
+  if (!playing || finished) {
+    return;
+  }
 
+  const object = getNearestObject();
 
-    if (!object) {
-
-        return;
-
-    }
-
-
-    const type =
-        object.userData.type;
-
-
-    if (
-        type === "safe"
-    ) {
-
-        if (
-            !inventory.includes("🔑 Chave")
-        ) {
-
-            showMessage(
-                "O cofre parece precisar de uma chave."
-            );
-
-            return;
-
-        }
-
-        openCodeModal();
-
-        return;
-
-    }
-
-
-    object.userData.collected =
-        true;
-
-    object.visible = false;
-
-
-    if (
-        type === "note1"
-    ) {
-
-        addItem(
-            "📄 Pista 1"
-        );
-
-        openNote(
-            "Primeira pista",
-            "Na sala existe uma sequência escondida. Procure o próximo objeto azul."
-        );
-
-        setObjective(
-            "Encontre a chave azul."
-        );
-
-    }
-
-
-    else if (
-        type === "key"
-    ) {
-
-        addItem(
-            "🔑 Chave"
-        );
-
-        showMessage(
-            "Chave encontrada!"
-        );
-
-        setObjective(
-            "Encontre o bilhete próximo aos armários."
-        );
-
-    }
-
-
-    else if (
-        type === "note2"
-    ) {
-
-        addItem(
-            "📝 Pista 2"
-        );
-
-        openNote(
-            "Segunda pista",
-            "Os números parecem indicar uma parte do código: 42."
-        );
-
-        setObjective(
-            "Encontre a última pista."
-        );
-
-    }
-
-
-    else if (
-        type === "battery"
-    ) {
-
-        energy = 100;
-
-        addItem(
-            "🔋 Bateria"
-        );
-
-        showMessage(
-            "A lanterna foi completamente recarregada."
-        );
-
-    }
-
-
-    else if (
-        type === "finalNote"
-    ) {
-
-        addItem(
-            "📜 Pista final"
-        );
-
-        openNote(
-            "Última pista",
-            "O restante do código é 71. Juntando as pistas: 42 + 71."
-        );
-
-        setObjective(
-            "Use o código 4271 no cofre."
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   INVENTÁRIO
-========================================================= */
-
-function addItem(
-    item
-) {
-
-    if (
-        inventory.includes(item)
-    ) {
-
-        return;
-
-    }
-
-
-    inventory.push(item);
-
-    updateInventory();
-
-    saveGame();
-
-}
-
-
-function updateInventory() {
-
-    const container =
-        document.getElementById(
-            "inventoryItems"
-        );
-
-    const count =
-        document.getElementById(
-            "itemCount"
-        );
-
-
-    count.textContent =
-        `${inventory.length}/8`;
-
-
-    container.innerHTML = "";
-
-
-    if (
-        inventory.length === 0
-    ) {
-
-        container.innerHTML =
-            `<span class="empty-inventory">Nenhum item encontrado.</span>`;
-
-        return;
-
-    }
-
-
-    inventory.forEach(
-        item => {
-
-            const element =
-                document.createElement(
-                    "div"
-                );
-
-            element.className =
-                "inventory-item";
-
-            element.textContent =
-                item;
-
-            container.appendChild(
-                element
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   OBJETIVO
-========================================================= */
-
-function setObjective(
-    text
-) {
-
-    document.getElementById(
-        "objective"
-    ).textContent = text;
-
-}
-
-
-/* =========================================================
-   MENSAGEM
-========================================================= */
-
-function showMessage(
-    text
-) {
-
-    const container =
-        document.getElementById(
-            "messageContainer"
-        );
-
-
-    const message =
-        document.createElement(
-            "div"
-        );
-
-    message.className =
-        "game-message";
-
-    message.textContent =
-        text;
-
-
-    container.appendChild(
-        message
-    );
-
-
-    setTimeout(
-        () => {
-
-            message.remove();
-
-        },
-        3500
-    );
-
-}
-
-
-/* =========================================================
-   PISTA
-========================================================= */
-
-function openNote(
-    title,
-    content
-) {
-
-    document.getElementById(
-        "noteTitle"
-    ).textContent = title;
-
-    document.getElementById(
-        "noteContent"
-    ).textContent = content;
-
-
-    document.getElementById(
-        "noteModal"
-    ).classList.remove(
-        "hidden"
-    );
-
-}
-
-
-function closeNote() {
-
-    document.getElementById(
-        "noteModal"
-    ).classList.add(
-        "hidden"
-    );
-
-}
-
-
-/* =========================================================
-   COFRE
-========================================================= */
-
-function openCodeModal() {
-
-    gamePaused = true;
-
-    document.getElementById(
-        "codeModal"
-    ).classList.remove(
-        "hidden"
-    );
-
-    const input =
-        document.getElementById(
-            "codeInput"
-        );
-
-    input.value = "";
-
-    updateCodeDisplay("");
-
-    setTimeout(
-        () => input.focus(),
-        100
-    );
-
-}
-
-
-function closeCodeModal() {
-
-    document.getElementById(
-        "codeModal"
-    ).classList.add(
-        "hidden"
-    );
-
-    if (
-        !gameEnded
-    ) {
-
-        gamePaused = false;
-
-    }
-
-}
-
-
-function updateCodeDisplay(
-    code
-) {
-
-    const boxes =
-        document.querySelectorAll(
-            "#codeDisplay span"
-        );
-
-
-    boxes.forEach(
-        (box, index) => {
-
-            box.textContent =
-                code[index] || "_";
-
-        }
-    );
-
-}
-
-
-function submitCode() {
-
-    const input =
-        document.getElementById(
-            "codeInput"
-        );
-
-    const feedback =
-        document.getElementById(
-            "codeFeedback"
-        );
-
-
-    const code =
-        input.value.trim();
-
-
-    if (
-        code === FINAL_CODE
-    ) {
-
-        feedback.textContent =
-            "Código correto!";
-
-        feedback.style.color =
-            "#4ade80";
-
-
-        setTimeout(
-            () => {
-
-                closeCodeModal();
-
-                winGame();
-
-            },
-            700
-        );
-
-    } else {
-
-        feedback.textContent =
-            "Código incorreto. Procure mais pistas.";
-
-        feedback.style.color =
-            "#f87171";
-
-
-        input.value = "";
-
-        updateCodeDisplay("");
-
-    }
-
-}
-
-
-/* =========================================================
-   LANTERNA
-========================================================= */
-
-function toggleFlashlight() {
-
-    flashlightOn =
-        !flashlightOn;
-
-    flashlight.visible =
-        flashlightOn;
-
+  if (!object) {
 
     showMessage(
-        flashlightOn
-            ? "Lanterna ligada."
-            : "Lanterna desligada."
+      "Aproxime-se de um objeto brilhante."
     );
 
-}
+    return;
+  }
 
 
-function updateEnergy() {
+  /* COFRE */
 
-    const fill =
-        document.getElementById(
-            "energyFill"
-        );
+  if (object.type === "safe") {
 
-    const text =
-        document.getElementById(
-            "energyText"
-        );
+    if (!inventory.includes("Chave")) {
 
+      showMessage(
+        "🔒 Você precisa encontrar a chave primeiro."
+      );
 
-    fill.style.width =
-        `${energy}%`;
-
-    text.textContent =
-        `${Math.round(energy)}%`;
-
-}
-
-
-/* =========================================================
-   TIMER
-========================================================= */
-
-function updateTimer(
-    delta
-) {
-
-    if (
-        !gameStarted ||
-        gamePaused ||
-        gameEnded
-    ) {
-
-        return;
-
+      return;
     }
 
+    codeModal.classList.remove("hidden");
 
-    timeLeft -= delta;
+    codeInput.value = "";
 
+    setTimeout(() => {
 
-    if (
-        timeLeft <= 0
-    ) {
+      codeInput.focus();
 
-        timeLeft = 0;
+    }, 100);
 
-        loseGame();
-
-    }
-
-
-    const minutes =
-        Math.floor(
-            timeLeft / 60
-        );
-
-    const seconds =
-        Math.floor(
-            timeLeft % 60
-        );
+    return;
+  }
 
 
-    const formatted =
-        `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
+  /* PISTA 1 */
 
+  if (object.type === "clue1") {
 
-    const timer =
-        document.getElementById(
-            "timer"
-        );
+    object.active = false;
 
-    timer.textContent =
-        formatted;
+    addInventory("Pista 1");
 
-
-    timer.classList.remove(
-        "warning",
-        "danger"
+    setObjective(
+      "Encontre a chave azul."
     );
 
-
-    if (
-        timeLeft <= 60
-    ) {
-
-        timer.classList.add(
-            "danger"
-        );
-
-    } else if (
-        timeLeft <= 180
-    ) {
-
-        timer.classList.add(
-            "warning"
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   PAUSA
-========================================================= */
-
-function togglePause() {
-
-    if (
-        document.getElementById(
-            "noteModal"
-        ).classList.contains(
-            "hidden"
-        ) === false
-    ) {
-
-        return;
-
-    }
-
-
-    if (
-        document.getElementById(
-            "codeModal"
-        ).classList.contains(
-            "hidden"
-        ) === false
-    ) {
-
-        return;
-
-    }
-
-
-    gamePaused =
-        !gamePaused;
-
-
-    document.getElementById(
-        "pauseScreen"
-    ).classList.toggle(
-        "hidden",
-        !gamePaused
+    showMessage(
+      "📄 A pista diz: procure a chave azul."
     );
+
+    return;
+  }
+
+
+  /* CHAVE */
+
+  if (object.type === "key") {
+
+    object.active = false;
+
+    addInventory("Chave");
+
+    setObjective(
+      "Encontre a pista nos armários."
+    );
+
+    showMessage(
+      "🔑 Você encontrou a chave!"
+    );
+
+    return;
+  }
+
+
+  /* PISTA 2 */
+
+  if (object.type === "clue2") {
+
+    object.active = false;
+
+    addInventory("Pista 2");
+
+    setObjective(
+      "Encontre a pista final."
+    );
+
+    showMessage(
+      "📝 A pista revela o número 42."
+    );
+
+    return;
+  }
+
+
+  /* PISTA FINAL */
+
+  if (object.type === "final") {
+
+    object.active = false;
+
+    addInventory("Pista final");
+
+    setObjective(
+      "Vá até o cofre e use o código."
+    );
+
+    showMessage(
+      "📜 A pista final revela 71. Código: 4271."
+    );
+
+    return;
+  }
 
 }
 
 
 /* =========================================================
-   SALVAR
+   CÓDIGO DO COFRE
 ========================================================= */
 
-function saveGame() {
+function openSafe() {
 
-    try {
+  const code = codeInput.value.trim();
 
-        localStorage.setItem(
-            "escape_school_save",
-            JSON.stringify({
-                inventory,
-                timeLeft,
-                energy
-            })
-        );
+  if (code === "4271") {
 
+    codeModal.classList.add("hidden");
 
-        const indicator =
-            document.getElementById(
-                "saveIndicator"
-            );
+    playing = false;
 
-        indicator.classList.add(
-            "show"
-        );
+    finished = true;
+
+    winScreen.classList.remove("hidden");
+
+    return;
+  }
 
 
-        setTimeout(
-            () => {
+  showMessage(
+    "❌ Código incorreto."
+  );
 
-                indicator.classList.remove(
-                    "show"
-                );
-
-            },
-            1200
-        );
-
-    } catch (error) {
-
-        console.warn(
-            "Não foi possível salvar:",
-            error
-        );
-
-    }
-
+  codeInput.select();
 }
 
 
-function loadGame() {
-
-    try {
-
-        const saved =
-            localStorage.getItem(
-                "escape_school_save"
-            );
+openSafeButton.addEventListener(
+  "click",
+  openSafe
+);
 
 
-        if (!saved) {
+cancelCodeButton.addEventListener(
+  "click",
+  () => {
 
-            return false;
+    codeModal.classList.add("hidden");
 
-        }
-
-
-        const data =
-            JSON.parse(saved);
-
-
-        if (
-            Array.isArray(
-                data.inventory
-            )
-        ) {
-
-            inventory.push(
-                ...data.inventory
-            );
-
-        }
+  }
+);
 
 
-        if (
-            typeof data.timeLeft ===
-            "number"
-        ) {
+codeInput.addEventListener(
+  "keydown",
+  event => {
 
-            timeLeft =
-                data.timeLeft;
+    if (event.key === "Enter") {
 
-        }
-
-
-        if (
-            typeof data.energy ===
-            "number"
-        ) {
-
-            energy =
-                data.energy;
-
-        }
-
-
-        updateInventory();
-
-        updateEnergy();
-
-        return true;
-
-    } catch {
-
-        return false;
+      openSafe();
 
     }
+
+  }
+);
+
+
+/* =========================================================
+   MOVIMENTO
+========================================================= */
+
+function updateMovement(delta) {
+
+  let forward = 0;
+  let strafe = 0;
+
+
+  if (keys["w"]) {
+    forward += 1;
+  }
+
+  if (keys["s"]) {
+    forward -= 1;
+  }
+
+  if (keys["a"]) {
+    strafe -= 1;
+  }
+
+  if (keys["d"]) {
+    strafe += 1;
+  }
+
+
+  forward += -joystickY;
+  strafe += joystickX;
+
+
+  const magnitude = Math.sqrt(
+    forward * forward +
+    strafe * strafe
+  );
+
+
+  if (magnitude > 1) {
+
+    forward /= magnitude;
+    strafe /= magnitude;
+
+  }
+
+
+  let speed = running ? 5.5 : 3.8;
+
+  speed *= delta;
+
+
+  const sin = Math.sin(player.angle);
+  const cos = Math.cos(player.angle);
+
+
+  const moveX =
+    (sin * forward +
+    cos * strafe) *
+    speed;
+
+
+  const moveY =
+    (cos * forward -
+    sin * strafe) *
+    speed;
+
+
+  const newX = player.x + moveX;
+  const newY = player.y + moveY;
+
+
+  if (!collision(newX, player.y)) {
+
+    player.x = newX;
+
+  }
+
+
+  if (!collision(player.x, newY)) {
+
+    player.y = newY;
+
+  }
 
 }
 
 
 /* =========================================================
-   REINICIAR
+   DESENHO 3D FAKE / RAYCASTING
 ========================================================= */
 
-function restartGame() {
+const FOV = Math.PI / 3;
 
-    localStorage.removeItem(
-        "escape_school_save"
-    );
+const RAYS = 180;
 
-    location.reload();
+function normalizeAngle(angle) {
+
+  while (angle < -Math.PI) {
+    angle += Math.PI * 2;
+  }
+
+  while (angle > Math.PI) {
+    angle -= Math.PI * 2;
+  }
+
+  return angle;
 
 }
 
 
 /* =========================================================
-   VITÓRIA
+   RAIO
 ========================================================= */
 
-function winGame() {
+function castRay(angle) {
 
-    if (
-        gameEnded
-    ) {
+  const step = 0.035;
 
-        return;
+  let x = player.x;
+  let y = player.y;
+
+  for (
+    let distance = 0;
+    distance < 30;
+    distance += step
+  ) {
+
+    x += Math.sin(angle) * step;
+    y += Math.cos(angle) * step;
+
+
+    if (collision(x, y)) {
+
+      return distance;
 
     }
 
-
-    gameEnded = true;
-
-    gamePaused = true;
+  }
 
 
-    const minutes =
-        Math.floor(
-            timeLeft / 60
-        );
-
-    const seconds =
-        Math.floor(
-            timeLeft % 60
-        );
+  return 30;
+}
 
 
-    document.getElementById(
-        "finalTime"
-    ).textContent =
-        `${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
+/* =========================================================
+   PROJEÇÃO DOS OBJETOS
+========================================================= */
+
+function projectObject(object) {
+
+  if (!object.active) {
+    return null;
+  }
 
 
-    document.getElementById(
-        "finalItems"
-    ).textContent =
-        inventory.length;
+  const dx =
+    object.x - player.x;
+
+  const dy =
+    object.y - player.y;
 
 
-    document.getElementById(
-        "winScreen"
-    ).classList.remove(
-        "hidden"
+  const distanceValue =
+    Math.sqrt(
+      dx * dx +
+      dy * dy
     );
 
 
-    if (
-        document.pointerLockElement
-    ) {
+  let angle =
+    Math.atan2(
+      dx,
+      dy
+    );
 
-        document.exitPointerLock();
 
-    }
+  angle =
+    normalizeAngle(
+      angle - player.angle
+    );
+
+
+  if (
+    Math.abs(angle) >
+    FOV / 2
+  ) {
+
+    return null;
+
+  }
+
+
+  const screenX =
+    width / 2 +
+    (angle / (FOV / 2)) *
+    (width / 2);
+
+
+  const size =
+    Math.min(
+      height,
+      500 / Math.max(distanceValue, 0.2)
+    );
+
+
+  const screenY =
+    height / 2 -
+    size * 0.1;
+
+
+  return {
+    x: screenX,
+    y: screenY,
+    size,
+    distance: distanceValue
+  };
 
 }
 
 
 /* =========================================================
-   DERROTA
+   DESENHAR CÉU
 ========================================================= */
 
-function loseGame() {
+function drawSky() {
 
-    if (
-        gameEnded
-    ) {
+  const sky = ctx.createLinearGradient(
+    0,
+    0,
+    0,
+    height / 2
+  );
 
-        return;
+  sky.addColorStop(
+    0,
+    "#070917"
+  );
 
-    }
-
-
-    gameEnded = true;
-
-    gamePaused = true;
-
-
-    document.getElementById(
-        "loseScreen"
-    ).classList.remove(
-        "hidden"
-    );
+  sky.addColorStop(
+    1,
+    "#242744"
+  );
 
 
-    if (
-        document.pointerLockElement
-    ) {
+  ctx.fillStyle = sky;
 
-        document.exitPointerLock();
-
-    }
+  ctx.fillRect(
+    0,
+    0,
+    width,
+    height / 2
+  );
 
 }
 
 
 /* =========================================================
-   MOBILE
+   DESENHAR CHÃO
 ========================================================= */
 
-function isMobile() {
+function drawFloor() {
 
-    return (
-        window.innerWidth <= 700 ||
-        "ontouchstart" in window
+  const floor =
+    ctx.createLinearGradient(
+      0,
+      height / 2,
+      0,
+      height
     );
+
+
+  floor.addColorStop(
+    0,
+    "#25283a"
+  );
+
+  floor.addColorStop(
+    1,
+    "#080a12"
+  );
+
+
+  ctx.fillStyle = floor;
+
+  ctx.fillRect(
+    0,
+    height / 2,
+    width,
+    height / 2
+  );
+
+
+  /* LINHAS DE PERSPECTIVA */
+
+  ctx.strokeStyle =
+    "rgba(255,255,255,0.07)";
+
+  ctx.lineWidth = 1;
+
+
+  for (
+    let i = -10;
+    i <= 10;
+    i++
+  ) {
+
+    const x =
+      width / 2 +
+      i * (width / 14);
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      width / 2,
+      height / 2
+    );
+
+    ctx.lineTo(
+      x,
+      height
+    );
+
+    ctx.stroke();
+
+  }
+
+
+  for (
+    let i = 1;
+    i <= 9;
+    i++
+  ) {
+
+    const y =
+      height / 2 +
+      Math.pow(
+        i / 9,
+        1.7
+      ) *
+      height / 2;
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      0,
+      y
+    );
+
+    ctx.lineTo(
+      width,
+      y
+    );
+
+    ctx.stroke();
+
+  }
 
 }
 
 
-function setupMobile() {
+/* =========================================================
+   PAREDES
+========================================================= */
+
+function drawWalls() {
+
+  const wallData = [];
+
+
+  for (
+    let ray = 0;
+    ray < RAYS;
+    ray++
+  ) {
+
+    const rayAngle =
+      player.angle -
+      FOV / 2 +
+      (ray / RAYS) * FOV;
+
+
+    let distanceValue =
+      castRay(rayAngle);
+
+
+    /* CORREÇÃO DO EFEITO FISH EYE */
+
+    distanceValue *=
+      Math.cos(
+        rayAngle -
+        player.angle
+      );
+
+
+    wallData.push(
+      distanceValue
+    );
+
+
+    const wallHeight =
+      Math.min(
+        height * 1.5,
+        height /
+        Math.max(
+          distanceValue,
+          0.1
+        )
+      );
+
+
+    const sliceWidth =
+      width / RAYS + 1;
+
+
+    const x =
+      ray * sliceWidth;
+
+
+    const top =
+      height / 2 -
+      wallHeight / 2;
+
+
+    let brightness =
+      1 -
+      distanceValue / 30;
+
+
+    brightness =
+      Math.max(
+        0.15,
+        brightness
+      );
+
+
+    const value =
+      Math.floor(
+        45 +
+        brightness * 65
+      );
+
+
+    ctx.fillStyle =
+      `rgb(${value}, ${value + 3}, ${value + 15})`;
+
+
+    ctx.fillRect(
+      x,
+      top,
+      sliceWidth + 1,
+      wallHeight
+    );
+
+
+    /* luzes do corredor */
 
     if (
-        !isMobile()
+      ray % 30 === 0 &&
+      distanceValue < 18
     ) {
 
-        return;
+      ctx.fillStyle =
+        "rgba(210,220,255,0.18)";
+
+      ctx.fillRect(
+        x,
+        top,
+        sliceWidth + 1,
+        4
+      );
 
     }
 
+  }
 
-    document.getElementById(
-        "mobileControls"
-    ).classList.remove(
-        "hidden"
+}
+
+
+/* =========================================================
+   DESENHAR OBJETOS
+========================================================= */
+
+function drawObjects() {
+
+  const visible = [];
+
+
+  for (
+    const object of objects
+  ) {
+
+    const projected =
+      projectObject(object);
+
+
+    if (projected) {
+
+      visible.push({
+        object,
+        projected
+      });
+
+    }
+
+  }
+
+
+  visible.sort(
+    (a,b) =>
+      b.projected.distance -
+      a.projected.distance
+  );
+
+
+  for (
+    const item of visible
+  ) {
+
+    const object =
+      item.object;
+
+    const p =
+      item.projected;
+
+
+    const radius =
+      Math.max(
+        7,
+        p.size * 0.18
+      );
+
+
+    /* brilho */
+
+    const glow =
+      ctx.createRadialGradient(
+        p.x,
+        p.y,
+        0,
+        p.x,
+        p.y,
+        radius * 2
+      );
+
+
+    glow.addColorStop(
+      0,
+      object.color + "aa"
+    );
+
+    glow.addColorStop(
+      1,
+      object.color + "00"
     );
 
 
-    const joystick =
-        document.getElementById(
-            "joystick"
-        );
+    ctx.fillStyle = glow;
 
-    const knob =
-        document.getElementById(
-            "joystickKnob"
-        );
+    ctx.beginPath();
+
+    ctx.arc(
+      p.x,
+      p.y,
+      radius * 2,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
 
 
-    let active = false;
+    /* objeto */
+
+    ctx.fillStyle =
+      object.color;
 
 
-    joystick.addEventListener(
-        "touchstart",
-        event => {
+    ctx.beginPath();
 
-            active = true;
+    ctx.arc(
+      p.x,
+      p.y,
+      radius,
+      0,
+      Math.PI * 2
+    );
 
-            event.preventDefault();
+    ctx.fill();
 
-        },
-        {
-            passive: false
-        }
+
+    /* contorno */
+
+    ctx.strokeStyle =
+      "#ffffffaa";
+
+    ctx.lineWidth = 2;
+
+    ctx.stroke();
+
+
+    /* símbolo */
+
+    ctx.fillStyle =
+      "#ffffff";
+
+    ctx.font =
+      `bold ${Math.max(
+        12,
+        radius
+      )}px Arial`;
+
+    ctx.textAlign =
+      "center";
+
+    ctx.textBaseline =
+      "middle";
+
+
+    let symbol = "?";
+
+
+    if (object.type === "key") {
+      symbol = "🔑";
+    }
+
+    if (object.type === "safe") {
+      symbol = "🔐";
+    }
+
+
+    ctx.fillText(
+      symbol,
+      p.x,
+      p.y
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   PORTA DE SAÍDA
+========================================================= */
+
+function drawExit() {
+
+  const dx =
+    0 - player.x;
+
+  const dy =
+    -16.4 - player.y;
+
+
+  const distanceValue =
+    Math.sqrt(
+      dx * dx +
+      dy * dy
     );
 
 
-    joystick.addEventListener(
-        "touchmove",
-        event => {
-
-            if (!active) {
-
-                return;
-
-            }
-
-
-            const touch =
-                event.touches[0];
-
-            const rect =
-                joystick.getBoundingClientRect();
-
-
-            const centerX =
-                rect.left +
-                rect.width / 2;
-
-            const centerY =
-                rect.top +
-                rect.height / 2;
-
-
-            let dx =
-                touch.clientX -
-                centerX;
-
-            let dy =
-                touch.clientY -
-                centerY;
-
-
-            const distance =
-                Math.sqrt(
-                    dx * dx +
-                    dy * dy
-                );
-
-
-            const max =
-                35;
-
-
-            if (
-                distance > max
-            ) {
-
-                dx =
-                    dx / distance * max;
-
-                dy =
-                    dy / distance * max;
-
-            }
-
-
-            knob.style.transform =
-                `translate(${dx}px,${dy}px)`;
-
-
-            keys["KeyW"] =
-                dy < -10;
-
-            keys["KeyS"] =
-                dy > 10;
-
-            keys["KeyA"] =
-                dx < -10;
-
-            keys["KeyD"] =
-                dx > 10;
-
-
-            event.preventDefault();
-
-        },
-        {
-            passive: false
-        }
+  let angle =
+    Math.atan2(
+      dx,
+      dy
     );
 
 
-    joystick.addEventListener(
-        "touchend",
-        () => {
-
-            active = false;
-
-            knob.style.transform =
-                "translate(0,0)";
-
-
-            keys["KeyW"] = false;
-            keys["KeyS"] = false;
-            keys["KeyA"] = false;
-            keys["KeyD"] = false;
-
-        }
+  angle =
+    normalizeAngle(
+      angle - player.angle
     );
 
 
-    document.getElementById(
-        "mobileInteract"
-    ).addEventListener(
-        "click",
-        interact
+  if (
+    Math.abs(angle) >
+    FOV / 2
+  ) {
+
+    return;
+
+  }
+
+
+  const screenX =
+    width / 2 +
+    (angle / (FOV / 2)) *
+    (width / 2);
+
+
+  const doorHeight =
+    Math.min(
+      height * 1.2,
+      height /
+      Math.max(
+        distanceValue,
+        0.1
+      )
     );
 
 
-    document.getElementById(
-        "mobileFlashlight"
-    ).addEventListener(
-        "click",
-        toggleFlashlight
+  const doorWidth =
+    doorHeight * 0.55;
+
+
+  const top =
+    height / 2 -
+    doorHeight / 2;
+
+
+  ctx.fillStyle =
+    "#5a1725";
+
+
+  ctx.fillRect(
+    screenX - doorWidth / 2,
+    top,
+    doorWidth,
+    doorHeight
+  );
+
+
+  ctx.strokeStyle =
+    "#e15168";
+
+  ctx.lineWidth = 3;
+
+
+  ctx.strokeRect(
+    screenX - doorWidth / 2,
+    top,
+    doorWidth,
+    doorHeight
+  );
+
+
+  if (
+    distanceValue < 12
+  ) {
+
+    ctx.fillStyle =
+      "#ff8c9c";
+
+    ctx.font =
+      "bold 15px Arial";
+
+    ctx.textAlign =
+      "center";
+
+    ctx.fillText(
+      "SAÍDA TRANCADA",
+      screenX,
+      top - 15
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   DESENHAR ESCOLA
+========================================================= */
+
+function drawGame() {
+
+  ctx.clearRect(
+    0,
+    0,
+    width,
+    height
+  );
+
+
+  drawSky();
+
+  drawFloor();
+
+  drawWalls();
+
+  drawExit();
+
+  drawObjects();
+
+}
+
+
+/* =========================================================
+   ATUALIZAR PROMPT
+========================================================= */
+
+function updatePrompt() {
+
+  const nearest =
+    getNearestObject();
+
+
+  if (nearest) {
+
+    promptElement.style.opacity =
+      "1";
+
+    promptElement.textContent =
+      "E — " +
+      nearest.name.toUpperCase();
+
+  } else {
+
+    promptElement.style.opacity =
+      "0";
+
+  }
+
+}
+
+
+/* =========================================================
+   CRONÔMETRO
+========================================================= */
+
+function updateTimer(delta) {
+
+  if (!playing || finished) {
+    return;
+  }
+
+
+  timeLeft -= delta;
+
+
+  if (timeLeft <= 0) {
+
+    timeLeft = 0;
+
+    playing = false;
+
+    loseScreen.classList.remove(
+      "hidden"
+    );
+
+    return;
+
+  }
+
+
+  const minutes =
+    Math.floor(
+      timeLeft / 60
+    );
+
+
+  const seconds =
+    Math.floor(
+      timeLeft % 60
+    );
+
+
+  timerElement.textContent =
+    String(minutes).padStart(
+      2,
+      "0"
+    ) +
+    ":" +
+    String(seconds).padStart(
+      2,
+      "0"
     );
 
 }
 
 
 /* =========================================================
-   BOTÕES
+   LOOP PRINCIPAL
 ========================================================= */
 
-document.getElementById(
-    "startButton"
-).addEventListener(
-    "click",
-    startGame
-);
+let lastTime = performance.now();
 
 
-document.getElementById(
-    "continueButton"
-).addEventListener(
-    "click",
-    startGame
-);
+function gameLoop(now) {
+
+  const delta =
+    Math.min(
+      (now - lastTime) / 1000,
+      0.05
+    );
 
 
-document.getElementById(
-    "resumeButton"
-).addEventListener(
-    "click",
-    () => {
-
-        gamePaused = false;
-
-        document.getElementById(
-            "pauseScreen"
-        ).classList.add(
-            "hidden"
-        );
-
-    }
-);
+  lastTime = now;
 
 
-document.getElementById(
-    "restartButton"
-).addEventListener(
-    "click",
-    restartGame
-);
+  if (playing) {
+
+    updateMovement(delta);
+
+    updateTimer(delta);
+
+    updatePrompt();
+
+  }
 
 
-document.getElementById(
-    "winRestart"
-).addEventListener(
-    "click",
-    restartGame
-);
+  if (!game.classList.contains("hidden")) {
+
+    drawGame();
+
+  }
 
 
-document.getElementById(
-    "loseRestart"
-).addEventListener(
-    "click",
-    restartGame
-);
+  requestAnimationFrame(
+    gameLoop
+  );
+
+}
 
 
-document.getElementById(
-    "closeNote"
-).addEventListener(
-    "click",
-    closeNote
-);
-
-
-document.getElementById(
-    "continueNote"
-).addEventListener(
-    "click",
-    closeNote
-);
-
-
-document.getElementById(
-    "closeCode"
-).addEventListener(
-    "click",
-    closeCodeModal
-);
-
-
-document.getElementById(
-    "submitCode"
-).addEventListener(
-    "click",
-    submitCode
-);
-
-
-document.getElementById(
-    "codeInput"
-).addEventListener(
-    "input",
-    event => {
-
-        event.target.value =
-            event.target.value
-                .replace(/\D/g, "")
-                .slice(0,4);
-
-        updateCodeDisplay(
-            event.target.value
-        );
-
-    }
-);
-
-
-document.getElementById(
-    "codeInput"
-).addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key === "Enter"
-        ) {
-
-            submitCode();
-
-        }
-
-    }
+requestAnimationFrame(
+  gameLoop
 );
 
 
@@ -2400,290 +1470,482 @@ document.getElementById(
    INICIAR
 ========================================================= */
 
-function startGame() {
+startButton.addEventListener(
+  "click",
+  () => {
 
-    document.getElementById(
-        "startScreen"
-    ).classList.add(
-        "hidden"
+    startScreen.classList.add(
+      "hidden"
     );
 
-    document.getElementById(
-        "hud"
-    ).classList.remove(
-        "hidden"
+    game.classList.remove(
+      "hidden"
     );
 
+    playing = true;
 
-    gameStarted = true;
+    finished = false;
 
-    gamePaused = false;
+    timeLeft = 15 * 60;
 
-    gameEnded = false;
+    player.x = 0;
 
+    player.y = 12;
 
-    setupMobile();
-
-
-    if (
-        !isMobile()
-    ) {
-
-        renderer.domElement.requestPointerLock();
-
-    }
-
+    player.angle = Math.PI;
 
     setObjective(
-        "Encontre a primeira pista na sala de aula."
+      "Encontre a pista azul."
     );
-
 
     showMessage(
-        "Explore a escola. Pressione E perto de objetos."
+      "Explore a escola e encontre a pista azul."
     );
 
-}
-
-
-/* =========================================================
-   RESIZE
-========================================================= */
-
-window.addEventListener(
-    "resize",
-    () => {
-
-        camera.aspect =
-            window.innerWidth /
-            window.innerHeight;
-
-        camera.updateProjectionMatrix();
-
-
-        renderer.setSize(
-            window.innerWidth,
-            window.innerHeight
-        );
-
-    }
+  }
 );
 
 
 /* =========================================================
-   LOOP
+   COMO JOGAR
 ========================================================= */
 
-function animate(
-    currentTime
-) {
+howButton.addEventListener(
+  "click",
+  () => {
 
-    requestAnimationFrame(
-        animate
+    startScreen.classList.add(
+      "hidden"
     );
 
+    howScreen.classList.remove(
+      "hidden"
+    );
 
-    const delta =
-        Math.min(
-            (currentTime - lastTime) / 1000,
-            .05
-        );
+  }
+);
 
 
-    lastTime =
-        currentTime;
+backButton.addEventListener(
+  "click",
+  () => {
+
+    howScreen.classList.add(
+      "hidden"
+    );
+
+    startScreen.classList.remove(
+      "hidden"
+    );
+
+  }
+);
+
+
+/* =========================================================
+   REINICIAR
+========================================================= */
+
+restartWin.addEventListener(
+  "click",
+  () => {
+
+    location.reload();
+
+  }
+);
+
+
+restartLose.addEventListener(
+  "click",
+  () => {
+
+    location.reload();
+
+  }
+);
+
+
+/* =========================================================
+   TECLADO
+========================================================= */
+
+window.addEventListener(
+  "keydown",
+  event => {
+
+    keys[
+      event.key.toLowerCase()
+    ] = true;
 
 
     if (
-        gameStarted &&
-        !gamePaused &&
-        !gameEnded
+      event.key.toLowerCase() === "e"
     ) {
 
-        movePlayer(
-            delta
-        );
+      interact();
 
-        updateCamera();
+    }
 
-        updateInteraction();
+  }
+);
 
-        updateTimer(
-            delta
-        );
 
-        updateEnergy();
+window.addEventListener(
+  "keyup",
+  event => {
 
-        saveGamePeriodically(
-            currentTime
-        );
+    keys[
+      event.key.toLowerCase()
+    ] = false;
+
+  }
+);
+
+
+/* =========================================================
+   MOUSE
+========================================================= */
+
+let mouseDown = false;
+let lastMouseX = 0;
+
+
+canvas.addEventListener(
+  "mousedown",
+  event => {
+
+    mouseDown = true;
+
+    lastMouseX =
+      event.clientX;
+
+  }
+);
+
+
+window.addEventListener(
+  "mouseup",
+  () => {
+
+    mouseDown = false;
+
+  }
+);
+
+
+window.addEventListener(
+  "mousemove",
+  event => {
+
+    if (
+      !mouseDown ||
+      !playing
+    ) {
+
+      return;
 
     }
 
 
-    renderer.render(
-        scene,
-        camera
+    const difference =
+      event.clientX -
+      lastMouseX;
+
+
+    player.angle +=
+      difference * 0.006;
+
+
+    lastMouseX =
+      event.clientX;
+
+  }
+);
+
+
+/* =========================================================
+   JOYSTICK
+========================================================= */
+
+let joystickPointer = null;
+
+
+function updateJoystick(event) {
+
+  const rect =
+    joystick.getBoundingClientRect();
+
+
+  const centerX =
+    rect.left +
+    rect.width / 2;
+
+
+  const centerY =
+    rect.top +
+    rect.height / 2;
+
+
+  let x =
+    (event.clientX -
+      centerX) / 43;
+
+
+  let y =
+    (event.clientY -
+      centerY) / 43;
+
+
+  const length =
+    Math.sqrt(
+      x * x +
+      y * y
     );
+
+
+  if (length > 1) {
+
+    x /= length;
+
+    y /= length;
+
+  }
+
+
+  joystickX = x;
+
+  joystickY = y;
+
+
+  joystickStick.style.transform =
+    `translate(
+      ${x * 35}px,
+      ${y * 35}px
+    )`;
 
 }
 
 
-let lastSave =
-    0;
+function resetJoystick() {
+
+  joystickX = 0;
+
+  joystickY = 0;
+
+  joystickStick.style.transform =
+    "translate(0,0)";
+
+}
 
 
-function saveGamePeriodically(
-    time
-) {
+joystick.addEventListener(
+  "pointerdown",
+  event => {
+
+    joystickPointer =
+      event.pointerId;
+
+    joystick.setPointerCapture(
+      joystickPointer
+    );
+
+    updateJoystick(event);
+
+  }
+);
+
+
+joystick.addEventListener(
+  "pointermove",
+  event => {
 
     if (
-        time - lastSave < 15000
+      event.pointerId ===
+      joystickPointer
     ) {
 
-        return;
+      updateJoystick(event);
+
+    }
+
+  }
+);
+
+
+joystick.addEventListener(
+  "pointerup",
+  resetJoystick
+);
+
+
+joystick.addEventListener(
+  "pointercancel",
+  resetJoystick
+);
+
+
+/* =========================================================
+   OLHAR NO CELULAR
+========================================================= */
+
+let looking = false;
+
+let lastTouchX = 0;
+
+game.addEventListener(
+  "touchstart",
+  event => {
+
+    if (
+      event.touches.length !== 1
+    ) {
+
+      return;
 
     }
 
 
-    lastSave =
-        time;
-
-    saveGame();
-
-}
+    const touch =
+      event.touches[0];
 
 
-/* =========================================================
-   PREPARAÇÃO
-========================================================= */
+    if (
+      touch.clientX >
+      window.innerWidth * 0.48
+    ) {
 
-function loadingSequence() {
+      looking = true;
 
-    const progress =
-        document.getElementById(
-            "loadingProgress"
-        );
+      lastTouchX =
+        touch.clientX;
 
-    const text =
-        document.getElementById(
-            "loadingText"
-        );
+    }
 
-
-    let value = 0;
-
-
-    const interval =
-        setInterval(
-            () => {
-
-                value +=
-                    Math.random() * 18;
+  },
+  {
+    passive: false
+  }
+);
 
 
-                if (
-                    value >= 100
-                ) {
+game.addEventListener(
+  "touchmove",
+  event => {
 
-                    value = 100;
-
-                    clearInterval(
-                        interval
-                    );
+    if (!looking) {
+      return;
+    }
 
 
-                    text.textContent =
-                        "Escola pronta!";
+    const touch =
+      event.touches[0];
 
 
-                    setTimeout(
-                        () => {
-
-                            const loading =
-                                document.getElementById(
-                                    "loading"
-                                );
-
-                            loading.style.opacity =
-                                "0";
+    const difference =
+      touch.clientX -
+      lastTouchX;
 
 
-                            setTimeout(
-                                () => {
-
-                                    loading.remove();
-
-                                },
-                                500
-                            );
-
-                        },
-                        350
-                    );
-
-                }
+    player.angle +=
+      difference * 0.008;
 
 
-                progress.style.width =
-                    `${value}%`;
+    lastTouchX =
+      touch.clientX;
 
 
-                if (
-                    value < 35
-                ) {
+    event.preventDefault();
 
-                    text.textContent =
-                        "Construindo a escola...";
+  },
+  {
+    passive: false
+  }
+);
 
-                } else if (
-                    value < 70
-                ) {
 
-                    text.textContent =
-                        "Preparando as pistas...";
+game.addEventListener(
+  "touchend",
+  () => {
 
-                } else {
+    looking = false;
 
-                    text.textContent =
-                        "Acendendo as luzes...";
-
-                }
-
-            },
-            100
-        );
-
-}
+  }
+);
 
 
 /* =========================================================
-   SAVE EXISTENTE
+   BOTÃO INTERAGIR
 ========================================================= */
 
-const hasSave =
-    loadGame();
+interactButton.addEventListener(
+  "click",
+  interact
+);
 
 
-if (
-    hasSave
-) {
+/* =========================================================
+   CORRER
+========================================================= */
 
-    document.getElementById(
-        "continueButton"
-    ).classList.remove(
-        "hidden"
-    );
+runButton.addEventListener(
+  "pointerdown",
+  () => {
 
-}
+    running = true;
+
+  }
+);
 
 
-updateInventory();
+runButton.addEventListener(
+  "pointerup",
+  () => {
 
-updateEnergy();
+    running = false;
 
-loadingSequence();
+  }
+);
 
-animate(
-    performance.now()
+
+runButton.addEventListener(
+  "pointercancel",
+  () => {
+
+    running = false;
+
+  }
+);
+
+
+/* =========================================================
+   PREVENIR ZOOM / SCROLL
+========================================================= */
+
+document.addEventListener(
+  "gesturestart",
+  event => {
+
+    event.preventDefault();
+
+  }
+);
+
+
+document.addEventListener(
+  "dblclick",
+  event => {
+
+    event.preventDefault();
+
+  }
+);
+
+
+/* =========================================================
+   FINAL
+========================================================= */
+
+console.log(
+  "ESCAPE DA ESCOLA carregado com sucesso."
 );
