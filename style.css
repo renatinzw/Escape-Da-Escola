@@ -7,8 +7,8 @@
 :root {
     --blue: #38bdf8;
     --blue2: #2563eb;
-    --dark: #030712;
-    --panel: rgba(4, 12, 23, 0.82);
+    --dark: #020617;
+    --panel: rgba(4, 12, 23, 0.88);
     --border: rgba(148, 163, 184, 0.16);
     --text: #e5edf7;
     --muted: #8fa1b5;
@@ -34,6 +34,12 @@ body {
         BlinkMacSystemFont,
         "Segoe UI",
         sans-serif;
+
+    user-select: none;
+}
+
+body {
+    touch-action: none;
 }
 
 button,
@@ -45,29 +51,91 @@ button {
     cursor: pointer;
 }
 
-#game {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-}
-
 canvas {
     display: block;
 }
 
-/* =========================================================
-   UTILITÁRIOS
-========================================================= */
+/* =====================================================
+   UTILIDADES
+===================================================== */
 
 .hidden {
     display: none !important;
 }
 
-/* =========================================================
-   TELAS
-========================================================= */
+/* =====================================================
+   LOADING
+===================================================== */
 
-.screen {
+#loading {
+    position: fixed;
+    inset: 0;
+
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #020617;
+}
+
+.loading-box {
+    width: min(420px, 90vw);
+
+    text-align: center;
+}
+
+.loading-icon {
+    font-size: 55px;
+    margin-bottom: 15px;
+}
+
+.loading-box h2 {
+    font-size: 22px;
+    letter-spacing: 3px;
+}
+
+.loading-box p {
+    margin-top: 12px;
+
+    color: #71849a;
+
+    font-size: 11px;
+}
+
+.loading-bar {
+    width: 100%;
+    height: 5px;
+
+    margin-top: 20px;
+
+    overflow: hidden;
+
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.08);
+}
+
+#loadingProgress {
+    width: 0%;
+    height: 100%;
+
+    background:
+        linear-gradient(
+            90deg,
+            #0284c7,
+            #38bdf8
+        );
+
+    transition: width 0.2s;
+}
+
+/* =====================================================
+   OVERLAYS
+===================================================== */
+
+.overlay {
     position: fixed;
     inset: 0;
 
@@ -81,54 +149,51 @@ canvas {
 
     background:
         radial-gradient(
-            circle at 50% 40%,
-            rgba(20, 75, 110, 0.42),
-            rgba(2, 6, 23, 0.97) 70%
+            circle at center,
+            rgba(15, 55, 80, 0.35),
+            rgba(2, 6, 23, 0.96) 75%
         );
 
-    backdrop-filter: blur(5px);
+    backdrop-filter: blur(6px);
 }
 
-/* =========================================================
+/* =====================================================
    MENU
-========================================================= */
+===================================================== */
 
-.menu-box {
-    width: min(700px, 95vw);
+.menu-card {
+    width: min(650px, 95vw);
 
-    padding: 38px;
+    padding: 35px;
 
     background:
         linear-gradient(
             145deg,
-            rgba(13, 35, 54, 0.97),
-            rgba(3, 10, 20, 0.98)
+            rgba(13, 35, 54, 0.98),
+            rgba(3, 10, 20, 0.99)
         );
 
-    border:
-        1px solid
-        rgba(56, 189, 248, 0.2);
+    border: 1px solid rgba(56, 189, 248, 0.2);
 
-    border-radius: 26px;
+    border-radius: 25px;
 
     box-shadow:
-        0 40px 120px rgba(0, 0, 0, 0.7),
-        inset 0 1px rgba(255, 255, 255, 0.06);
+        0 40px 120px rgba(0, 0, 0, 0.75);
 
-    animation: menuIn 0.6s ease;
+    animation: menuIn 0.5s ease;
 }
 
 .logo {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 15px;
 
     margin-bottom: 20px;
 }
 
 .logo-icon {
-    width: 50px;
-    height: 50px;
+    width: 55px;
+    height: 55px;
 
     display: flex;
     align-items: center;
@@ -136,42 +201,36 @@ canvas {
 
     background: rgba(56, 189, 248, 0.08);
 
-    border:
-        1px solid
-        rgba(56, 189, 248, 0.2);
+    border: 1px solid rgba(56, 189, 248, 0.2);
 
-    border-radius: 14px;
+    border-radius: 15px;
 
-    font-size: 25px;
+    font-size: 27px;
 }
 
-.logo span {
-    display: block;
-
-    color: var(--muted);
+.logo small {
+    color: #7dd3fc;
 
     font-size: 8px;
+
     letter-spacing: 3px;
+
+    font-weight: 900;
 }
 
-.logo strong {
-    display: block;
+.logo h1 {
+    margin-top: 5px;
 
-    color: #e0f2fe;
+    font-size: clamp(34px, 7vw, 58px);
 
-    font-size: 17px;
-    letter-spacing: 3px;
-}
+    line-height: 0.95;
 
-.menu-box h1 {
-    font-size: clamp(32px, 7vw, 62px);
-    line-height: 0.98;
     letter-spacing: -2px;
 
     background:
         linear-gradient(
             90deg,
-            white,
+            #ffffff,
             #7dd3fc,
             #60a5fa
         );
@@ -180,18 +239,14 @@ canvas {
     background-clip: text;
 
     color: transparent;
-
-    margin-bottom: 18px;
 }
 
-.subtitle {
-    max-width: 600px;
-
+.intro {
     color: #b8c7d8;
 
     line-height: 1.65;
 
-    font-size: 15px;
+    font-size: 14px;
 
     margin-bottom: 20px;
 }
@@ -203,40 +258,45 @@ canvas {
 
     padding: 13px 15px;
 
-    margin-bottom: 22px;
+    margin-bottom: 20px;
 
-    background:
-        rgba(250, 204, 21, 0.06);
+    background: rgba(250, 204, 21, 0.06);
 
-    border:
-        1px solid
-        rgba(250, 204, 21, 0.15);
+    border: 1px solid rgba(250, 204, 21, 0.15);
 
     border-radius: 12px;
 }
 
-.warning-box span {
+.warning-box > span {
     color: var(--yellow);
 
-    font-size: 20px;
+    font-size: 22px;
+}
+
+.warning-box strong {
+    color: #fde68a;
+
+    font-size: 11px;
+
+    letter-spacing: 1px;
 }
 
 .warning-box p {
-    color: #b7c3d1;
+    color: #9aaabc;
 
-    font-size: 12px;
-    line-height: 1.45;
+    margin-top: 3px;
+
+    font-size: 11px;
 }
 
 .controls-grid {
     display: grid;
 
-    grid-template-columns:
-        repeat(3, 1fr);
+    grid-template-columns: repeat(3, 1fr);
 
     gap: 8px;
 
-    margin-bottom: 22px;
+    margin-bottom: 20px;
 }
 
 .control {
@@ -244,12 +304,9 @@ canvas {
 
     text-align: center;
 
-    background:
-        rgba(255, 255, 255, 0.035);
+    background: rgba(255, 255, 255, 0.035);
 
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.06);
 
     border-radius: 10px;
 }
@@ -260,10 +317,11 @@ canvas {
     color: #bae6fd;
 
     font-size: 11px;
+
     letter-spacing: 1px;
 }
 
-.control small {
+.control span {
     display: block;
 
     color: #6f8195;
@@ -273,10 +331,10 @@ canvas {
     margin-top: 4px;
 }
 
-.main-button {
+.primary-button {
     width: 100%;
 
-    padding: 16px 20px;
+    padding: 15px 20px;
 
     border: 0;
 
@@ -298,23 +356,15 @@ canvas {
         );
 
     box-shadow:
-        0 12px 35px
-        rgba(37, 99, 235, 0.25);
+        0 12px 35px rgba(37, 99, 235, 0.25);
 
-    transition:
-        transform 0.2s,
-        filter 0.2s,
-        box-shadow 0.2s;
+    transition: 0.2s;
 }
 
-.main-button:hover {
+.primary-button:hover {
     transform: translateY(-2px);
 
-    filter: brightness(1.12);
-
-    box-shadow:
-        0 17px 40px
-        rgba(37, 99, 235, 0.38);
+    filter: brightness(1.1);
 }
 
 .secondary-button {
@@ -326,36 +376,15 @@ canvas {
 
     color: #94a3b8;
 
-    background:
-        rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.04);
 
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 
     border-radius: 10px;
 }
 
-.best-time {
-    margin-top: 16px;
-
-    text-align: center;
-
-    color: #617387;
-
-    font-size: 10px;
-
-    letter-spacing: 1px;
-}
-
-.best-time strong {
-    color: #7dd3fc;
-
-    margin-left: 5px;
-}
-
 .version {
-    margin-top: 18px;
+    margin-top: 17px;
 
     text-align: center;
 
@@ -366,9 +395,9 @@ canvas {
     letter-spacing: 2px;
 }
 
-/* =========================================================
+/* =====================================================
    HUD
-========================================================= */
+===================================================== */
 
 #hud {
     position: fixed;
@@ -382,11 +411,11 @@ canvas {
 .top-bar {
     position: absolute;
 
-    left: 0;
     top: 0;
+    left: 0;
     right: 0;
 
-    height: 70px;
+    height: 75px;
 
     display: grid;
 
@@ -398,217 +427,112 @@ canvas {
 
     background:
         linear-gradient(
-            rgba(2, 6, 23, 0.9),
-            rgba(2, 6, 23, 0)
+            rgba(2, 6, 23, 0.92),
+            transparent
         );
 }
 
-.brand {
+.brand-mini {
     color: #bae6fd;
 
-    font-size: 11px;
+    font-size: 10px;
 
     font-weight: 900;
 
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
 }
 
-.brand span {
-    margin-right: 5px;
-}
+.objective-box {
+    max-width: 380px;
 
-#locationName {
-    color: #64748b;
-
-    font-size: 9px;
-
-    font-weight: 800;
-
-    letter-spacing: 3px;
-
-    text-align: center;
-}
-
-#timer {
-    justify-self: end;
-
-    min-width: 86px;
-
-    padding: 8px 12px;
-
-    border:
-        1px solid
-        rgba(148, 163, 184, 0.12);
-
-    border-radius: 9px;
-
-    background:
-        rgba(2, 6, 23, 0.7);
-
-    color: white;
-
-    font-size: 18px;
-
-    font-weight: 900;
+    padding: 9px 15px;
 
     text-align: center;
 
-    font-variant-numeric: tabular-nums;
+    background: rgba(2, 6, 23, 0.6);
 
-    transition: 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+
+    border-radius: 10px;
 }
 
-#timer.warning {
-    color: var(--yellow);
+.objective-box span {
+    display: block;
 
-    border-color:
-        rgba(250, 204, 21, 0.35);
-}
-
-#timer.danger {
-    color: #f87171;
-
-    border-color:
-        rgba(239, 68, 68, 0.4);
-
-    animation: timerPulse 0.8s infinite;
-}
-
-/* =========================================================
-   OBJETIVO
-========================================================= */
-
-#objectiveBox {
-    position: absolute;
-
-    top: 84px;
-    left: 20px;
-
-    width: min(330px, 70vw);
-
-    padding: 12px 14px;
-
-    background:
-        rgba(2, 6, 23, 0.62);
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.07);
-
-    border-radius: 11px;
-
-    backdrop-filter: blur(8px);
-}
-
-.objective-label {
     color: #38bdf8;
-
-    font-size: 8px;
-
-    font-weight: 900;
-
-    letter-spacing: 2px;
-
-    margin-bottom: 5px;
-}
-
-#objectiveText {
-    color: #cbd5e1;
-
-    font-size: 11px;
-
-    line-height: 1.45;
-}
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-#statusBox {
-    position: absolute;
-
-    left: 20px;
-    bottom: 20px;
-
-    width: 180px;
-
-    padding: 11px;
-
-    background:
-        rgba(2, 6, 23, 0.65);
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.07);
-
-    border-radius: 11px;
-}
-
-.status-row {
-    display: grid;
-
-    grid-template-columns: 50px 1fr;
-
-    gap: 7px;
-
-    align-items: center;
-
-    margin-bottom: 7px;
-}
-
-.status-row:last-child {
-    margin-bottom: 0;
-}
-
-.status-row span {
-    color: #71849a;
 
     font-size: 7px;
 
     font-weight: 900;
 
-    letter-spacing: 1px;
+    letter-spacing: 2px;
+
+    margin-bottom: 4px;
 }
 
-.bar {
-    height: 5px;
+.objective-box strong {
+    color: #dbeafe;
 
-    overflow: hidden;
-
-    background: rgba(255, 255, 255, 0.08);
-
-    border-radius: 10px;
+    font-size: 11px;
 }
 
-.bar div {
-    height: 100%;
+.timer-box {
+    justify-self: end;
 
-    width: 100%;
-
-    background:
-        linear-gradient(
-            90deg,
-            #0ea5e9,
-            #38bdf8
-        );
-
-    border-radius: inherit;
-
-    transition: width 0.15s;
+    text-align: center;
 }
 
-.bar.health div {
-    background:
-        linear-gradient(
-            90deg,
-            #16a34a,
-            #4ade80
-        );
+.timer-box span {
+    display: block;
+
+    color: #64748b;
+
+    font-size: 7px;
+
+    letter-spacing: 2px;
 }
 
-/* =========================================================
+#timer {
+    display: block;
+
+    min-width: 85px;
+
+    padding: 7px 10px;
+
+    margin-top: 3px;
+
+    color: white;
+
+    background: rgba(2, 6, 23, 0.7);
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
+
+    border-radius: 9px;
+
+    font-size: 18px;
+
+    font-weight: 900;
+
+    font-variant-numeric: tabular-nums;
+}
+
+#timer.warning {
+    color: var(--yellow);
+
+    border-color: rgba(250, 204, 21, 0.35);
+}
+
+#timer.danger {
+    color: #f87171;
+
+    border-color: rgba(239, 68, 68, 0.4);
+
+    animation: timerPulse 0.8s infinite;
+}
+
+/* =====================================================
    CROSSHAIR
-========================================================= */
+===================================================== */
 
 #crosshair {
     position: absolute;
@@ -616,22 +540,18 @@ canvas {
     left: 50%;
     top: 50%;
 
-    width: 24px;
-    height: 24px;
+    width: 25px;
+    height: 25px;
 
-    transform:
-        translate(-50%, -50%);
+    transform: translate(-50%, -50%);
 }
 
 #crosshair span {
     position: absolute;
 
-    display: block;
-
     background: rgba(255, 255, 255, 0.85);
 
-    box-shadow:
-        0 0 3px #000;
+    box-shadow: 0 0 3px #000;
 }
 
 #crosshair span:nth-child(1) {
@@ -666,64 +586,54 @@ canvas {
     bottom: 0;
 }
 
-/* =========================================================
+/* =====================================================
    INTERAÇÃO
-========================================================= */
+===================================================== */
 
-#interactionBox {
+#interactionPrompt {
     position: absolute;
 
     left: 50%;
     bottom: 17%;
 
-    transform:
-        translateX(-50%)
-        translateY(10px);
+    transform: translate(-50%, 10px);
 
     display: flex;
-
     align-items: center;
 
     gap: 9px;
 
     padding: 8px 12px;
 
-    background:
-        rgba(2, 6, 23, 0.86);
+    background: rgba(2, 6, 23, 0.88);
 
-    border:
-        1px solid
-        rgba(56, 189, 248, 0.25);
+    border: 1px solid rgba(56, 189, 248, 0.25);
 
     border-radius: 9px;
 
     opacity: 0;
 
-    transition:
-        opacity 0.15s,
-        transform 0.15s;
+    transition: 0.15s;
 }
 
-#interactionBox.visible {
+#interactionPrompt.visible {
     opacity: 1;
 
-    transform:
-        translateX(-50%)
-        translateY(0);
+    transform: translate(-50%, 0);
 }
 
-#interactionKey {
+#interactionPrompt kbd {
     display: flex;
 
-    width: 24px;
-    height: 24px;
+    width: 25px;
+    height: 25px;
 
     align-items: center;
     justify-content: center;
 
-    background: #e2e8f0;
-
     color: #0f172a;
+
+    background: #e2e8f0;
 
     border-radius: 5px;
 
@@ -740,77 +650,149 @@ canvas {
     font-weight: 800;
 }
 
-/* =========================================================
-   MESSAGE
-========================================================= */
+/* =====================================================
+   MENSAGENS
+===================================================== */
 
-#message {
+#messageContainer {
     position: absolute;
 
     left: 50%;
-    bottom: 9%;
+    bottom: 8%;
 
-    transform:
-        translateX(-50%)
-        translateY(10px);
+    transform: translateX(-50%);
 
-    max-width: min(550px, 90vw);
+    width: min(600px, 90vw);
 
-    padding: 11px 16px;
+    display: flex;
 
-    text-align: center;
+    justify-content: center;
+
+    pointer-events: none;
+}
+
+.game-message {
+    padding: 11px 17px;
 
     color: #e2e8f0;
 
+    text-align: center;
+
     font-size: 11px;
 
-    background:
-        rgba(2, 6, 23, 0.9);
+    background: rgba(2, 6, 23, 0.92);
 
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 
     border-radius: 9px;
 
-    opacity: 0;
-
-    transition: 0.2s;
+    animation: messageIn 0.2s ease;
 }
 
-#message.show {
-    opacity: 1;
+/* =====================================================
+   STATUS
+===================================================== */
 
-    transform:
-        translateX(-50%)
-        translateY(0);
+.bottom-left {
+    position: absolute;
+
+    left: 20px;
+    bottom: 20px;
 }
 
-/* =========================================================
+.status-panel {
+    width: 190px;
+
+    padding: 11px;
+
+    background: rgba(2, 6, 23, 0.72);
+
+    border: 1px solid rgba(255, 255, 255, 0.07);
+
+    border-radius: 11px;
+}
+
+.status-title {
+    display: flex;
+
+    gap: 7px;
+
+    color: #8fa1b5;
+
+    font-size: 8px;
+
+    font-weight: 900;
+
+    letter-spacing: 1px;
+
+    margin-bottom: 7px;
+}
+
+.energy-bar {
+    width: 100%;
+    height: 5px;
+
+    overflow: hidden;
+
+    background: rgba(255, 255, 255, 0.08);
+
+    border-radius: 10px;
+}
+
+#energyFill {
+    width: 100%;
+    height: 100%;
+
+    background:
+        linear-gradient(
+            90deg,
+            #0284c7,
+            #38bdf8
+        );
+
+    transition: width 0.15s;
+}
+
+#energyText {
+    display: block;
+
+    color: #71849a;
+
+    font-size: 8px;
+
+    text-align: right;
+
+    margin-top: 4px;
+}
+
+/* =====================================================
    INVENTÁRIO
-========================================================= */
+===================================================== */
 
-#inventory {
+.bottom-right {
     position: absolute;
 
     right: 20px;
     bottom: 20px;
+}
 
-    width: 210px;
+.inventory {
+    width: 215px;
 
     padding: 12px;
 
-    background:
-        rgba(2, 6, 23, 0.68);
+    background: rgba(2, 6, 23, 0.72);
 
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.07);
 
     border-radius: 11px;
 }
 
 .inventory-header {
+    display: flex;
+
+    justify-content: space-between;
+
     color: #71849a;
 
     font-size: 8px;
@@ -820,6 +802,10 @@ canvas {
     letter-spacing: 2px;
 
     margin-bottom: 8px;
+}
+
+.inventory-header small {
+    color: #38bdf8;
 }
 
 #inventoryItems {
@@ -841,231 +827,142 @@ canvas {
 
     color: #bae6fd;
 
-    background:
-        rgba(56, 189, 248, 0.08);
+    background: rgba(56, 189, 248, 0.08);
 
-    border:
-        1px solid
-        rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.15);
 
     border-radius: 6px;
 
     font-size: 9px;
 }
 
-/* =========================================================
-   MAPA
-========================================================= */
+/* =====================================================
+   LOCAL
+===================================================== */
 
-#map {
-    position: absolute;
-
-    right: 20px;
-    top: 84px;
-
-    width: 145px;
-    height: 145px;
-
-    padding: 9px;
-
-    background:
-        rgba(2, 6, 23, 0.7);
-
-    border:
-        1px solid
-        rgba(255, 255, 255, 0.08);
-
-    border-radius: 11px;
-
-    backdrop-filter: blur(7px);
-}
-
-.map-title {
-    color: #64748b;
-
-    font-size: 7px;
-
-    font-weight: 900;
-
-    letter-spacing: 2px;
-
-    margin-bottom: 6px;
-}
-
-#mapCanvas {
-    position: relative;
-
-    width: 100%;
-    height: calc(100% - 15px);
-
-    overflow: hidden;
-
-    background:
-        #07111b;
-
-    border:
-        1px solid
-        rgba(56, 189, 248, 0.08);
-}
-
-.map-wall {
-    position: absolute;
-
-    background: #334155;
-}
-
-.map-player {
-    position: absolute;
-
-    width: 6px;
-    height: 6px;
-
-    margin-left: -3px;
-    margin-top: -3px;
-
-    background: #38bdf8;
-
-    border-radius: 50%;
-
-    box-shadow:
-        0 0 8px #38bdf8;
-
-    z-index: 3;
-}
-
-.map-enemy {
-    position: absolute;
-
-    width: 5px;
-    height: 5px;
-
-    margin-left: -2.5px;
-    margin-top: -2.5px;
-
-    background: #ef4444;
-
-    border-radius: 50%;
-
-    box-shadow:
-        0 0 7px #ef4444;
-
-    z-index: 3;
-}
-
-/* =========================================================
-   ALERTA
-========================================================= */
-
-#dangerAlert {
+#locationName {
     position: absolute;
 
     left: 50%;
-    top: 92px;
+    bottom: 20px;
 
     transform: translateX(-50%);
 
-    padding: 7px 13px;
+    color: rgba(203, 213, 225, 0.6);
 
-    color: #fca5a5;
-
-    background:
-        rgba(127, 29, 29, 0.35);
-
-    border:
-        1px solid
-        rgba(239, 68, 68, 0.3);
-
-    border-radius: 8px;
-
-    font-size: 8px;
+    font-size: 9px;
 
     font-weight: 900;
 
-    letter-spacing: 2px;
-
-    opacity: 0;
-
-    transition: 0.2s;
+    letter-spacing: 3px;
 }
 
-#dangerAlert.active {
-    opacity: 1;
+/* =====================================================
+   SAVE
+===================================================== */
 
-    animation:
-        dangerFlash 0.8s infinite;
-}
-
-.bottom-controls {
+#saveIndicator {
     position: absolute;
 
+    top: 90px;
     right: 20px;
-    bottom: 20px;
 
-    color: rgba(148, 163, 184, 0.35);
+    color: #86efac;
 
     font-size: 8px;
 
-    letter-spacing: 1px;
+    opacity: 0;
+
+    transition: 0.3s;
 }
 
-/* =========================================================
-   PAUSA
-========================================================= */
-
-.pause-box,
-.result-box,
-.modal-box {
-    width: min(460px, 94vw);
-
-    padding: 34px;
-
-    text-align: center;
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(12, 31, 49, 0.98),
-            rgba(3, 10, 20, 0.99)
-        );
-
-    border:
-        1px solid
-        rgba(56, 189, 248, 0.18);
-
-    border-radius: 22px;
-
-    box-shadow:
-        0 35px 100px
-        rgba(0, 0, 0, 0.75);
-
-    animation: menuIn 0.25s ease;
+#saveIndicator.show {
+    opacity: 1;
 }
 
-.pause-icon {
-    font-size: 50px;
+/* =====================================================
+   MOBILE
+===================================================== */
 
-    margin-bottom: 10px;
+#mobileControls {
+    position: absolute;
+
+    inset: 0;
+
+    pointer-events: none;
 }
 
-.pause-box h2 {
-    font-size: 27px;
+#joystick {
+    position: absolute;
 
-    letter-spacing: 2px;
+    left: 25px;
+    bottom: 30px;
 
-    margin-bottom: 8px;
+    width: 120px;
+    height: 120px;
+
+    pointer-events: auto;
+
+    border-radius: 50%;
+
+    background: rgba(255, 255, 255, 0.06);
+
+    border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.pause-box p {
-    color: #71849a;
+#joystickKnob {
+    position: absolute;
 
-    margin-bottom: 22px;
+    left: 50%;
+    top: 50%;
 
-    font-size: 13px;
+    width: 52px;
+    height: 52px;
+
+    transform: translate(-50%, -50%);
+
+    border-radius: 50%;
+
+    background: rgba(56, 189, 248, 0.28);
+
+    border: 1px solid rgba(125, 211, 252, 0.4);
 }
 
-/* =========================================================
+#mobileInteract,
+#mobileFlashlight {
+    position: absolute;
+
+    width: 55px;
+    height: 55px;
+
+    pointer-events: auto;
+
+    border-radius: 50%;
+
+    border: 1px solid rgba(255, 255, 255, 0.15);
+
+    color: white;
+
+    background: rgba(2, 6, 23, 0.75);
+
+    font-size: 17px;
+
+    font-weight: 900;
+}
+
+#mobileInteract {
+    right: 90px;
+    bottom: 40px;
+}
+
+#mobileFlashlight {
+    right: 20px;
+    bottom: 105px;
+}
+
+/* =====================================================
    MODAIS
-========================================================= */
+===================================================== */
 
 .modal {
     position: fixed;
@@ -1081,21 +978,40 @@ canvas {
 
     padding: 20px;
 
-    background:
-        rgba(0, 0, 0, 0.72);
+    background: rgba(0, 0, 0, 0.75);
 
     backdrop-filter: blur(9px);
 }
 
-.modal-box {
+.modal-card {
     position: relative;
+
+    width: min(450px, 94vw);
+
+    padding: 30px;
+
+    text-align: center;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(12, 31, 49, 0.98),
+            rgba(3, 10, 20, 0.99)
+        );
+
+    border: 1px solid rgba(56, 189, 248, 0.18);
+
+    border-radius: 20px;
+
+    box-shadow:
+        0 35px 100px rgba(0, 0, 0, 0.8);
 }
 
-.modal-close {
+.close-button {
     position: absolute;
 
-    right: 13px;
-    top: 13px;
+    right: 12px;
+    top: 12px;
 
     width: 31px;
     height: 31px;
@@ -1106,14 +1022,64 @@ canvas {
 
     color: #94a3b8;
 
-    background:
-        rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.05);
 
     font-size: 21px;
 }
 
-.modal-icon {
-    font-size: 48px;
+.note {
+    background: #e8ddbd;
+
+    color: #17202a;
+}
+
+.paper {
+    position: relative;
+
+    padding: 15px;
+
+    color: #17202a;
+}
+
+.paper-pin {
+    width: 13px;
+    height: 13px;
+
+    margin: -5px auto 15px;
+
+    border-radius: 50%;
+
+    background: #ef4444;
+}
+
+.note-icon {
+    font-size: 40px;
+
+    margin-bottom: 8px;
+}
+
+.note h2 {
+    font-size: 25px;
+
+    margin-bottom: 12px;
+}
+
+#noteContent {
+    font-size: 14px;
+
+    line-height: 1.7;
+}
+
+.paper-line {
+    height: 1px;
+
+    margin: 20px 0;
+
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.safe-icon {
+    font-size: 50px;
 
     margin-bottom: 8px;
 }
@@ -1126,22 +1092,18 @@ canvas {
     font-weight: 900;
 
     letter-spacing: 3px;
-
-    margin-bottom: 8px;
 }
 
-.modal-box h2 {
-    font-size: 24px;
+.safe-modal h2 {
+    font-size: 25px;
 
-    margin-bottom: 8px;
+    margin: 7px 0;
 }
 
-.modal-box > p {
+.safe-modal > p {
     color: #8495a8;
 
     font-size: 12px;
-
-    line-height: 1.5;
 }
 
 #codeDisplay {
@@ -1149,13 +1111,13 @@ canvas {
 
     justify-content: center;
 
-    gap: 9px;
+    gap: 8px;
 
-    margin: 20px 0 12px;
+    margin: 20px 0 10px;
 }
 
 #codeDisplay span {
-    width: 42px;
+    width: 43px;
     height: 48px;
 
     display: flex;
@@ -1165,16 +1127,13 @@ canvas {
 
     color: #7dd3fc;
 
-    font-size: 22px;
+    font-size: 21px;
 
     font-weight: 900;
 
-    background:
-        rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.04);
 
-    border:
-        1px solid
-        rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.15);
 
     border-radius: 8px;
 }
@@ -1182,42 +1141,96 @@ canvas {
 #codeInput {
     position: absolute;
 
-    opacity: 0;
-
     width: 1px;
     height: 1px;
+
+    opacity: 0;
 }
 
 #codeFeedback {
     min-height: 20px;
 
-    margin-top: 10px;
-
     color: #f87171;
 
     font-size: 11px;
+
+    margin-bottom: 8px;
 }
 
-.note #noteContent {
-    margin: 18px 0 25px;
+/* =====================================================
+   PAUSA
+===================================================== */
 
-    color: #d7e0ea;
+.pause-card {
+    width: min(430px, 94vw);
 
-    font-size: 14px;
+    padding: 35px;
 
-    line-height: 1.7;
+    text-align: center;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(12, 31, 49, 0.98),
+            rgba(3, 10, 20, 0.99)
+        );
+
+    border: 1px solid rgba(56, 189, 248, 0.18);
+
+    border-radius: 22px;
 }
 
-/* =========================================================
-   RESULTADOS
-========================================================= */
+.pause-icon {
+    font-size: 50px;
 
-.result-box {
-    width: min(560px, 94vw);
+    margin-bottom: 10px;
+}
+
+.pause-card h1 {
+    margin-bottom: 8px;
+}
+
+.pause-card p {
+    color: #71849a;
+
+    margin-bottom: 22px;
+
+    font-size: 13px;
+}
+
+/* =====================================================
+   RESULTADO
+===================================================== */
+
+.result-card {
+    width: min(550px, 94vw);
+
+    padding: 35px;
+
+    text-align: center;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(12, 31, 49, 0.98),
+            rgba(3, 10, 20, 0.99)
+        );
+
+    border: 1px solid rgba(56, 189, 248, 0.18);
+
+    border-radius: 22px;
+}
+
+.result-card.victory {
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.result-card.defeat {
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
 .result-icon {
-    font-size: 70px;
+    font-size: 65px;
 
     margin-bottom: 5px;
 }
@@ -1230,38 +1243,26 @@ canvas {
     font-weight: 900;
 
     letter-spacing: 4px;
-
-    margin-bottom: 10px;
 }
 
-.result-box h1 {
-    font-size: clamp(32px, 7vw, 52px);
-
-    margin-bottom: 15px;
+.defeat .result-label {
+    color: #f87171;
 }
 
-.result-box > p {
+.result-card h1 {
+    font-size: clamp(30px, 7vw, 50px);
+
+    margin: 10px 0 15px;
+}
+
+.result-card > p {
     color: #a9b8c8;
 
     font-size: 13px;
 
     line-height: 1.65;
 
-    margin-bottom: 24px;
-}
-
-.result-box.victory {
-    border-color:
-        rgba(34, 197, 94, 0.25);
-}
-
-.result-box.defeat {
-    border-color:
-        rgba(239, 68, 68, 0.25);
-}
-
-.result-box.defeat .result-label {
-    color: #f87171;
+    margin-bottom: 23px;
 }
 
 .stats {
@@ -1277,18 +1278,17 @@ canvas {
 .stats div {
     padding: 13px;
 
-    background:
-        rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.04);
 
     border-radius: 10px;
 }
 
-.stats small {
+.stats span {
     display: block;
 
     color: #64748b;
 
-    font-size: 8px;
+    font-size: 7px;
 
     letter-spacing: 2px;
 }
@@ -1303,18 +1303,50 @@ canvas {
     margin-top: 4px;
 }
 
-.danger-button {
+/* =====================================================
+   EFEITOS
+===================================================== */
+
+#flashOverlay {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 15;
+
+    pointer-events: none;
+
+    background: white;
+
+    opacity: 0;
+
+    transition: opacity 0.08s;
+}
+
+#flashOverlay.active {
+    opacity: 0.12;
+}
+
+#vignette {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 10;
+
+    pointer-events: none;
+
     background:
-        linear-gradient(
-            135deg,
-            #991b1b,
-            #dc2626
+        radial-gradient(
+            circle,
+            transparent 45%,
+            rgba(0, 0, 0, 0.6) 100%
         );
 }
 
-/* =========================================================
+/* =====================================================
    ANIMAÇÕES
-========================================================= */
+===================================================== */
 
 @keyframes menuIn {
     from {
@@ -1338,69 +1370,87 @@ canvas {
     50% {
         box-shadow:
             0 0 20px
-            rgba(239, 68, 68, 0.25);
+            rgba(239, 68, 68, 0.3);
     }
 }
 
-@keyframes dangerFlash {
-    50% {
-        opacity: 0.4;
+@keyframes messageIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
-/* =========================================================
-   MOBILE
-========================================================= */
+/* =====================================================
+   RESPONSIVO
+===================================================== */
 
 @media (max-width: 700px) {
 
-    .menu-box {
+    .menu-card {
         padding: 25px 20px;
     }
 
+    .logo h1 {
+        font-size: 35px;
+    }
+
     .controls-grid {
-        grid-template-columns:
-            repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    #map {
-        width: 115px;
-        height: 115px;
+    .top-bar {
+        grid-template-columns: 1fr auto;
 
-        right: 10px;
-        top: 76px;
+        padding: 0 10px;
     }
 
-    #objectiveBox {
-        left: 10px;
-        top: 76px;
-
-        width: 200px;
-    }
-
-    #inventory {
-        right: 10px;
-        bottom: 10px;
-
-        width: 165px;
-    }
-
-    #statusBox {
-        left: 10px;
-        bottom: 10px;
-
-        width: 145px;
-    }
-
-    .bottom-controls {
+    .brand-mini {
         display: none;
     }
 
-    #interactionBox {
-        bottom: 24%;
+    .objective-box {
+        justify-self: start;
+
+        max-width: 210px;
     }
 
-    #message {
-        bottom: 14%;
+    .objective-box strong {
+        font-size: 9px;
+    }
+
+    .bottom-left {
+        left: 10px;
+        bottom: 10px;
+    }
+
+    .status-panel {
+        width: 145px;
+    }
+
+    .bottom-right {
+        right: 10px;
+        bottom: 10px;
+    }
+
+    .inventory {
+        width: 165px;
+    }
+
+    #locationName {
+        bottom: 10px;
+    }
+
+    #interactionPrompt {
+        bottom: 25%;
+    }
+
+    #messageContainer {
+        bottom: 17%;
     }
 }
